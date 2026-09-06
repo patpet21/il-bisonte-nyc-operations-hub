@@ -1,13 +1,22 @@
 (function(){
-  const USERS_KEY='ib_nyc_ops_users_v02';
-  const NOTIFS_KEY='ib_nyc_ops_notifications_v02';
+  const USERS_KEY='ib_nyc_ops_users_v03';
+  const NOTIFS_KEY='ib_nyc_ops_notifications_v03';
 
   const userSeed=[
-    {email:'demo.store@ilbisonte.local',displayName:'Store Manager',role:'store_manager',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'SoHo / Bleecker Street'},
-    {email:'demo.pm@ilbisonte.local',displayName:'Project Manager',role:'project_manager',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'New York'},
-    {email:'demo.management@ilbisonte.local',displayName:'Management',role:'management',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'Corporate'},
-    {email:'new.user@demo.local',displayName:'Demo New User',role:'store_manager',status:'Pending',requestedAt:'2026-09-06 12:30',approvedBy:'',approvedAt:'',store:'SoHo / Bleecker Street'}
+    {email:'demo.store@ilbisonte.local',displayName:'Store Manager',role:'store_manager',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'SoHo / Bleecker Street',lastLogin:'',googleSub:'',department:'Store Operations',notes:'',accessVersion:'1'},
+    {email:'demo.pm@ilbisonte.local',displayName:'Project Manager',role:'project_manager',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'New York',lastLogin:'',googleSub:'',department:'Project Management',notes:'',accessVersion:'1'},
+    {email:'demo.management@ilbisonte.local',displayName:'Management',role:'management',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'Corporate',lastLogin:'',googleSub:'',department:'Management',notes:'',accessVersion:'1'},
+    {email:'demo.it@ilbisonte.local',displayName:'IT Admin',role:'it_admin',status:'Approved',requestedAt:'2026-09-01 09:00',approvedBy:'Demo Admin',approvedAt:'2026-09-01 09:05',store:'Corporate',lastLogin:'',googleSub:'',department:'IT',notes:'',accessVersion:'1'},
+    {email:'new.user@demo.local',displayName:'Demo New User',role:'store_manager',status:'Pending',requestedAt:'2026-09-06 12:30',approvedBy:'',approvedAt:'',store:'SoHo / Bleecker Street',lastLogin:'',googleSub:'',department:'',notes:'',accessVersion:'1'}
   ];
+
+  const rolePermissions={
+    store_manager:{viewDashboard:true,manageProjects:false,manageRequests:true,manageVendors:false,viewPassMetadata:false,revealPasswords:false,manageUsers:false,approveUsers:false,viewManagement:false},
+    project_manager:{viewDashboard:true,manageProjects:true,manageRequests:true,manageVendors:true,viewPassMetadata:true,revealPasswords:false,manageUsers:true,approveUsers:false,viewManagement:false},
+    management:{viewDashboard:true,manageProjects:false,manageRequests:false,manageVendors:false,viewPassMetadata:true,revealPasswords:false,manageUsers:true,approveUsers:true,viewManagement:true},
+    it_admin:{viewDashboard:true,manageProjects:false,manageRequests:true,manageVendors:true,viewPassMetadata:true,revealPasswords:true,manageUsers:true,approveUsers:true,viewManagement:true},
+    read_only:{viewDashboard:true,manageProjects:false,manageRequests:false,manageVendors:false,viewPassMetadata:false,revealPasswords:false,manageUsers:false,approveUsers:false,viewManagement:false}
+  };
 
   const notificationSeed=[
     {id:'NTF-0001',recipient:'role:project_manager',title:'New access request',message:'Demo New User requested Store Manager access.',type:'access_request',read:false,createdAt:'2026-09-06 12:30',entityType:'USER',entityId:'new.user@demo.local'},
@@ -23,34 +32,42 @@
   function backendCall(action,payload={}){
     const url=window.IB_CONFIG.appsScriptUrl;
     if(!url) return Promise.reject(new Error('Apps Script URL is not configured'));
-    const body=new URLSearchParams({action,payload:JSON.stringify(payload)});
+    const idToken=window.IBAuth?.getToken?.()||'';
+    const body=new URLSearchParams({action,payload:JSON.stringify(payload),idToken});
     return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body})
       .then(r=>{if(!r.ok)throw new Error(`Backend error ${r.status}`);return r.json()})
       .then(j=>{if(j.error)throw new Error(j.error);return j.data});
   }
 
   const demo={
+    async getSession(){
+      const s=window.IBAuth?.current?.();const email=s?.user?.email||s?.profile?.email||'';const users=load(USERS_KEY,userSeed);const user=users.find(u=>u.email===email)||s?.user||null;return {user,identity:s?.profile||user,permissions:rolePermissions[user?.role]||{}};
+    },
     async listUsers(){return load(USERS_KEY,userSeed)},
     async requestAccess(payload){
       const users=load(USERS_KEY,userSeed);
-      const email=String(payload.email||'').trim().toLowerCase();
+      const authEmail=window.IBAuth?.current?.()?.profile?.email||'';
+      const email=String(authEmail||payload.email||'').trim().toLowerCase();
       if(!email)throw new Error('Email is required');
       const existing=users.find(u=>String(u.email).toLowerCase()===email);
-      const row={email,displayName:payload.displayName||email,role:payload.role||'store_manager',status:'Pending',requestedAt:now(),approvedBy:'',approvedAt:'',store:payload.store||window.IB_CONFIG.storeName};
+      const row={email,displayName:payload.displayName||email,role:payload.role||'store_manager',status:'Pending',requestedAt:now(),approvedBy:'',approvedAt:'',store:payload.store||window.IB_CONFIG.storeName,lastLogin:'',googleSub:window.IBAuth?.current?.()?.profile?.sub||'',department:payload.department||'',notes:'',accessVersion:'1'};
       if(existing)Object.assign(existing,row);else users.unshift(row);
       save(USERS_KEY,users);
       await this.createNotification({recipient:'role:project_manager',title:'New access request',message:`${row.displayName} requested ${prettyRole(row.role)} access.`,type:'access_request',entityType:'USER',entityId:row.email});
       await this.createNotification({recipient:'role:management',title:'Approval required',message:`${row.displayName} is waiting for access approval.`,type:'approval',entityType:'USER',entityId:row.email});
       return row;
     },
-    async setUserStatus(email,status,actor='Project Manager'){
+    async setUserStatus(email,status,actor='Project Manager',role){
       const users=load(USERS_KEY,userSeed);const row=users.find(u=>u.email===email);if(!row)throw new Error('User not found');
-      row.status=status;row.approvedBy=actor;row.approvedAt=now();save(USERS_KEY,users);
-      await this.createNotification({recipient:email,title:`Access ${status.toLowerCase()}`,message:`Your NYC Operations Hub access request was ${status.toLowerCase()}.`,type:'access_status',entityType:'USER',entityId:email});
+      if(role)row.role=role;row.status=status;row.approvedBy=actor;row.approvedAt=now();save(USERS_KEY,users);
+      await this.createNotification({recipient:email,title:`Access ${status.toLowerCase()}`,message:`Your NYC Operations Hub access request was ${status.toLowerCase()}${role?` as ${prettyRole(role)}`:''}.`,type:'access_status',entityType:'USER',entityId:email});
       return row;
     },
+    async setUserRole(email,role,actor='Management'){
+      const users=load(USERS_KEY,userSeed);const row=users.find(u=>u.email===email);if(!row)throw new Error('User not found');row.role=role;row.approvedBy=actor;row.approvedAt=now();save(USERS_KEY,users);return row;
+    },
     async listNotifications(context={}){
-      const rows=load(NOTIFS_KEY,notificationSeed);const role=context.role||'';const email=context.email||'';
+      const rows=load(NOTIFS_KEY,notificationSeed);const role=context.role||window.IB_CURRENT_USER?.role||'';const email=context.email||window.IB_CURRENT_USER?.email||'';
       return rows.filter(n=>n.recipient==='all'||n.recipient===email||n.recipient===`role:${role}`);
     },
     async createNotification(payload){
@@ -61,16 +78,19 @@
   };
 
   const backend={
+    getSession(){return backendCall('getSession')},
     listUsers(){return backendCall('listUsers')},
     requestAccess(payload){return backendCall('requestAccess',payload)},
-    setUserStatus(email,status,actor){return backendCall('setUserStatus',{email,status,actor})},
+    setUserStatus(email,status,actor,role){return backendCall('setUserStatus',{email,status,actor,role})},
+    setUserRole(email,role,actor){return backendCall('setUserRole',{email,role,actor})},
     listNotifications(context){return backendCall('listNotifications',context)},
     createNotification(payload){return backendCall('createNotification',payload)},
     markNotificationRead(id){return backendCall('markNotificationRead',{id})},
     registerPushSubscription(email,subscription){return backendCall('registerPushSubscription',{email,subscription})}
   };
 
-  function prettyRole(role){return ({store_manager:'Store Manager',project_manager:'Project Manager',management:'Management'})[role]||role}
+  function prettyRole(role){return ({store_manager:'Store Manager',project_manager:'Project Manager',management:'Management',it_admin:'IT Admin',read_only:'Read Only'})[role]||role}
   window.IBAccess=(window.IB_CONFIG.dataMode==='apps_script'&&window.IB_CONFIG.appsScriptUrl)?backend:demo;
   window.IBPrettyRole=prettyRole;
+  window.IBRolePermissions=rolePermissions;
 })();
