@@ -87,7 +87,8 @@
   const appsScriptProvider={
     async call(action,payload={}){
       const url=window.IB_CONFIG.appsScriptUrl;if(!url)throw new Error('Apps Script URL is not configured');
-      const body=new URLSearchParams({action,payload:JSON.stringify(payload)});
+      const idToken=window.IBAuth?.getToken?.()||'';
+      const body=new URLSearchParams({action,payload:JSON.stringify(payload),idToken});
       const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
       if(!res.ok)throw new Error(`Backend error ${res.status}`);const json=await res.json();if(json.error)throw new Error(json.error);return json.data;
     },
