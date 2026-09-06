@@ -4,11 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#173f36" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="IB Operations" />
   <title>Il Bisonte NYC Operations Hub</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="notifications.css" />
+  <link rel="stylesheet" href="access-modal.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -21,7 +29,7 @@
       <nav id="sidebarNav" class="sidebar-nav"></nav>
       <div class="sidebar-foot">
         <span>Private Operations Hub</span>
-        <small>Prototype v0.1</small>
+        <small>Prototype v0.2</small>
       </div>
     </aside>
 
@@ -52,6 +60,8 @@
 
   <script src="config.js"></script>
   <script src="data-provider.js"></script>
+  <script src="access-provider.js"></script>
   <script src="app.js"></script>
+  <script src="notifications.js"></script>
 </body>
 </html>
