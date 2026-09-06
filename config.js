@@ -1,6 +1,6 @@
 window.IB_CONFIG = {
   appName: "Il Bisonte NYC Operations Hub",
-  appVersion: "0.2",
+  appVersion: "0.3",
   environment: "DEMO",
   storeName: "SoHo / Bleecker Street",
   dataMode: "demo",
@@ -9,6 +9,10 @@ window.IB_CONFIG = {
     emailEnabled: true,
     remotePushEnabled: false,
     vapidPublicKey: ""
+  },
+  security: {
+    storeRawPasswords: false,
+    credentialRegisterEnabled: true
   },
   brand: {
     primary: "#173f36",
