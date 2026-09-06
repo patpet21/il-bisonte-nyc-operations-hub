@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#173f36" />
+  <title>Il Bisonte NYC Operations Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✦</div>
+        <div class="brand-name">IL BISONTE</div>
+        <div class="brand-sub">NEW YORK</div>
+      </div>
+      <nav id="sidebarNav" class="sidebar-nav"></nav>
+      <div class="sidebar-foot">
+        <span>Private Operations Hub</span>
+        <small>Prototype v0.1</small>
+      </div>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="globalSearch" type="search" placeholder="Search projects, requests, vendors, or procedures..." />
+        </div>
+        <div class="topbar-actions">
+          <span id="environmentBadge" class="env-badge">DEMO</span>
+          <label class="role-label" for="roleSelect">View as</label>
+          <select id="roleSelect" class="role-select">
+            <option value="store_manager">Store Manager</option>
+            <option value="project_manager" selected>Project Manager</option>
+            <option value="management">Management</option>
+          </select>
+          <div class="avatar">PF</div>
+        </div>
+      </header>
+
+      <section id="pageRoot" class="page-root"></section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+
+  <script src="config.js"></script>
+  <script src="data-provider.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
