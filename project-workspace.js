@@ -34,7 +34,7 @@
     currentId=id;dirty=false;deletedTasks=new Set();q('#projectDetailBackdrop')?.remove();
     const root=q('#modalRoot');if(!root)return;
     root.innerHTML=`<div class="pw-backdrop" id="pwBackdrop"><div class="pw-shell" role="dialog" aria-modal="true" aria-label="Project workspace"><div class="pw-loading">Opening project…</div></div></div>`;
-    await ensureTasks();render(project);
+    await ensureTasks();renderWorkspace(project);
   }
 
   async function ensureTasks(){if(Array.isArray(App.data.tasks))return;try{const fresh=await IBData.getAll();App.data={...App.data,...fresh}}catch(e){App.data.tasks=[]}}
@@ -43,7 +43,7 @@
     return ['project_manager','it_admin'].includes(App.role);
   }
 
-  function render(p){
+  function renderWorkspace(p){
     const shell=q('.pw-shell');if(!shell)return;const editable=canEdit();const tasks=(App.data.tasks||[]).filter(t=>t.projectId===p.id);
     shell.innerHTML=`<header class="pw-head"><div class="pw-head-main"><div class="pw-project-id">${safe(p.id)} · ${safe(p.scope||'Project')}</div><h2 class="pw-title" id="pwTitle">${safe(p.name)}</h2><div class="pw-subline"><span class="pill ${cls(p.priority)}">${safe(p.priority||'Normal')}</span><span class="pill ${cls(p.status)}">${safe(p.status||'Not Started')}</span>${editable?'':'<span class="pw-view-only">View only</span>'}</div></div><div class="pw-head-actions"><span class="pw-unsaved" id="pwUnsaved"></span>${editable?'<button class="pw-save" id="pwSave">Save changes</button>':''}<button class="pw-close" id="pwClose" aria-label="Close">×</button></div></header>
       <nav class="pw-tabs"><button class="pw-tab active" data-pw-tab="overview">Overview</button><button class="pw-tab" data-pw-tab="details">Details</button><button class="pw-tab" data-pw-tab="tasks">Tasks <span class="muted">${tasks.length}</span></button><button class="pw-tab" data-pw-tab="notes">Notes & Links</button><button class="pw-tab" data-pw-tab="activity">Activity</button></nav>
@@ -83,7 +83,7 @@
   function cls(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-')}
 
   function wire(p,edit){
-    q('#pwClose').onclick=close;
+    q('#pwClose').onclick=attemptClose;
     q('#pwBackdrop').onclick=e=>{if(e.target===e.currentTarget)attemptClose()};
     qa('.pw-tab').forEach(b=>b.onclick=()=>switchTab(b.dataset.pwTab));
     if(!edit)return;
@@ -96,7 +96,7 @@
   function wireTask(row){
     qa('input,select',row).forEach(el=>el.addEventListener('input',markDirty));
     q('.pw-task-check',row)?.addEventListener('change',e=>{const status=q('[data-task-field="status"]',row);if(status)status.value=e.target.checked?'Completed':'In Progress';markDirty()});
-    q('.pw-task-delete',row)?.addEventListener('click',()=>{const id=row.dataset.taskId;if(!row.dataset.new||row.dataset.new==='0')deletedTasks.add(id);row.remove();markDirty();if(!q('.pw-task',q('#pwTaskList')))q('#pwTaskList').innerHTML='<div class="pw-task-empty" id="pwTaskEmpty">No tasks yet. Add the first action for this project.</div>'});
+    q('.pw-task-delete',row)?.addEventListener('click',()=>{const id=row.dataset.taskId;if(row.dataset.new!=='1')deletedTasks.add(id);row.remove();markDirty();if(!q('.pw-task',q('#pwTaskList')))q('#pwTaskList').innerHTML='<div class="pw-task-empty" id="pwTaskEmpty">No tasks yet. Add the first action for this project.</div>'});
   }
   function switchTab(id){qa('.pw-tab').forEach(x=>x.classList.toggle('active',x.dataset.pwTab===id));qa('.pw-panel').forEach(x=>x.classList.toggle('active',x.dataset.pwPanel===id))}
   function markDirty(){dirty=true;const u=q('#pwUnsaved');if(u)u.textContent='Unsaved changes'}
@@ -108,7 +108,7 @@
       const updated=await IBData.updateProject(currentId,patch);Object.assign(project,updated);
       for(const id of deletedTasks){await IBData.deleteTask(id)}
       const taskRows=qa('.pw-task',q('#pwTaskList'));for(const row of taskRows){const payload={projectId:currentId};qa('[data-task-field]',row).forEach(el=>payload[el.dataset.taskField]=el.value);payload.status=q('.pw-task-check',row)?.checked?'Completed':payload.status;const id=row.dataset.taskId;if(row.dataset.new==='1')await IBData.createTask(payload);else await IBData.updateTask(id,payload)}
-      const fresh=await IBData.getAll();App.data={...App.data,...fresh};dirty=false;deletedTasks.clear();if(typeof render==='function')render();const p=App.data.projects.find(x=>x.id===currentId)||project;render(p);if(typeof toast==='function')toast('Project saved');
+      const fresh=await IBData.getAll();App.data={...App.data,...fresh};dirty=false;deletedTasks.clear();if(typeof window.render==='function')window.render();const p=App.data.projects.find(x=>x.id===currentId)||project;renderWorkspace(p);if(typeof toast==='function')toast('Project saved');
     }catch(e){if(typeof toast==='function')toast(e.message||'Unable to save project');btn.disabled=false;btn.textContent='Save changes'}
   }
 
