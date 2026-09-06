@@ -1,10 +1,18 @@
 window.IB_CONFIG = {
   appName: "Il Bisonte NYC Operations Hub",
-  appVersion: "0.5",
+  appVersion: "0.6",
   environment: "DEMO",
   storeName: "SoHo / Bleecker Street",
   dataMode: "demo",
   appsScriptUrl: "",
+  auth: {
+    mode: "demo",
+    provider: "google",
+    googleClientId: "",
+    requireApproval: true,
+    allowedDomains: [],
+    defaultRequestedRole: "store_manager"
+  },
   notifications: {
     emailEnabled: true,
     remotePushEnabled: false,
@@ -12,7 +20,8 @@ window.IB_CONFIG = {
   },
   security: {
     storeRawPasswords: false,
-    credentialRegisterEnabled: true
+    credentialRegisterEnabled: true,
+    enforceBackendPermissions: true
   },
   credentials: {
     sheetConnected: false,
