@@ -6,9 +6,14 @@ window.IB_CONFIG = {
   dataMode: "apps_script",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwvzB0rtQuPqkETvOcPeYfHZBjyLdN68Ri4yljwgi1BVmgvtfPDRUV5ga9Hio_p3NXo/exec",
   auth: {
-    mode: "google",
-    provider: "google",
+    mode: "hybrid",
+    provider: "google_firebase",
     googleClientId: "820629414310-2si6rdduoj891f99lbdu401606a33l1o.apps.googleusercontent.com",
+    firebase: {
+      apiKey: "AIzaSyCoBEwYpj7x9y_JbUf-CYeUDV784MehpBY",
+      authDomain: "il-bisonte-nyc-operations-hub.firebaseapp.com",
+      projectId: "il-bisonte-nyc-operations-hub"
+    },
     requireApproval: true,
     allowedDomains: [],
     defaultRequestedRole: "store_manager"
