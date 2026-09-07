@@ -30,19 +30,25 @@
     };
   }
 
-  // Production loading: do not hit Apps Script before Google has produced a token,
-  // deduplicate concurrent getAll calls and reuse a very short per-user session cache.
+  // Production loading: authenticate/authorize first, then load workspace data.
+  // This avoids an unauthorized/duplicate Apps Script request during sign-in,
+  // deduplicates concurrent getAll calls and reuses a very short per-user cache.
   function optimizeProductionLoading(){
     if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IBData?.getAll)return;
     const originalGetAll=window.IBData.getAll.bind(window.IBData);
     let inflight=null;
     const CACHE_TTL=30000;
 
-    function waitForToken(){
-      if(window.IB_CONFIG?.auth?.mode!=='google'||window.IBAuth?.getToken?.())return Promise.resolve();
+    function waitForApprovedSession(){
+      if(window.IB_CONFIG?.auth?.mode!=='google')return Promise.resolve();
+      const ready=()=>{
+        const s=window.IBAuth?.current?.();
+        return Boolean(window.IBAuth?.getToken?.()&&String(s?.user?.status||'').toLowerCase()==='approved');
+      };
+      if(ready())return Promise.resolve();
       return new Promise(resolve=>{
         const timer=setInterval(()=>{
-          if(window.IBAuth?.getToken?.()){
+          if(ready()){
             clearInterval(timer);
             resolve();
           }
@@ -64,8 +70,14 @@
       return null;
     }
 
+    function showLoadingState(){
+      const root=document.querySelector('#pageRoot');
+      if(root&&!root.innerHTML.trim())root.innerHTML='<div class="panel"><div class="empty">Loading workspace…</div></div>';
+    }
+
     function fetchFresh(key){
       if(inflight)return inflight;
+      showLoadingState();
       inflight=originalGetAll().then(data=>{
         try{sessionStorage.setItem(key,JSON.stringify({at:Date.now(),data:data}));}catch(e){}
         return data;
@@ -74,7 +86,7 @@
     }
 
     window.IBData.getAll=async function(){
-      await waitForToken();
+      await waitForApprovedSession();
       const key=cacheKey();
       const cached=readCache(key);
       if(cached){
