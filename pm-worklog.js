@@ -107,8 +107,8 @@
       ${field('description','Description',`<textarea NAME rows="3">${escHtml(r.description||'')}</textarea>`,true)}
       ${field('stakeholders','Stakeholders',`<input NAME type="text" value="${escHtml(r.stakeholders||'')}">`,true)}
       ${field('billingType','Billing type',`<select NAME>${['Hourly','Flat Fee','Included in Monthly Retainer','Non-Billable'].map(x=>`<option ${x===r.billingType?'selected':''}>${x}</option>`).join('')}</select>`)}
-      ${field('rate','Rate',`<input NAME type="number" min="0" step="0.01" value="${escHtml(r.rate??'')}">`)}
-      ${field('amount','Amount',`<input NAME type="number" min="0" step="0.01" value="${escHtml(r.amount??'')}">`)}
+      ${field('rate','Rate',`<input NAME type="number" min="0" step="0.01" value="${r.rate===''?'':number(r.rate)}">`)}
+      ${field('amount','Amount',`<input NAME type="number" min="0" step="0.01" value="${r.amount===''?'':number(r.amount)}">`)}
       ${field('invoiceStatus','Invoice status',`<select NAME>${['Not Invoiced','Draft','Invoiced','Paid','Not Billable'].map(x=>`<option ${x===r.invoiceStatus?'selected':''}>${x}</option>`).join('')}</select>`)}
       ${field('evidenceRef','Evidence / Activity ref',`<input NAME type="text" value="${escHtml(r.evidenceRef||'')}">`)}
       ${field('notes','Notes',`<textarea NAME rows="3">${escHtml(r.notes||'')}</textarea>`,true)}
