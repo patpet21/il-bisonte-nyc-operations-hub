@@ -10,7 +10,7 @@ window.IB_CONFIG = {
     provider: "google_firebase",
     googleClientId: "820629414310-2si6rdduoj891f99lbdu401606a33l1o.apps.googleusercontent.com",
     firebase: {
-      apiKey: "AIzaSyCoBEwYpj7x9y_JbUf-CYeUDV784MehpBY",
+      apiKey: "AIzaSyCoBEwYPj7x9y_JbUf-CYeUDV784MehpBY",
       authDomain: "il-bisonte-nyc-operations-hub.firebaseapp.com",
       projectId: "il-bisonte-nyc-operations-hub"
     },
