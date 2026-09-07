@@ -1,7 +1,8 @@
 const SHEETS = {
   requests:'REQUESTS', projects:'PROJECTS', tasks:'TASKS', vendors:'VENDORS', systems:'SYSTEMS',
   sops:'SOPS', decisions:'DECISIONS', improvements:'IMPROVEMENTS', activity:'ACTIVITY_LOG',
-  users:'USERS', notifications:'NOTIFICATIONS', rolePermissions:'ROLE_PERMISSIONS', config:'CONFIG'
+  users:'USERS', notifications:'NOTIFICATIONS', rolePermissions:'ROLE_PERMISSIONS', config:'CONFIG',
+  pmWorklog:'PM_WORKLOG'
 };
 
 function doGet(){return jsonResponse({ok:true,service:'Il Bisonte NYC Operations API',auth:authMode_()});}
@@ -24,6 +25,10 @@ function doPost(e){
       else if(action==='createTask') data=createTask_(payload,session.user);
       else if(action==='updateTask') data=updateTask_(payload.id,payload.patch||{},session.user);
       else if(action==='deleteTask') data=deleteTask_(payload.id,session.user);
+      else if(action==='listPMWorklog') data=listPMWorklog_(session.user);
+      else if(action==='createPMWorklog') data=createPMWorklog_(payload,session.user);
+      else if(action==='updatePMWorklog') data=updatePMWorklog_(payload.id,payload.patch||{},session.user);
+      else if(action==='deletePMWorklog') data=deletePMWorklog_(payload.id,session.user);
       else if(action==='listUsers') data=readObjects_(SHEETS.users);
       else if(action==='setUserStatus') data=setUserStatus_(payload,session.user);
       else if(action==='setUserRole') data=setUserRole_(payload,session.user);
@@ -57,7 +62,7 @@ function requireApprovedSession_(identity){const user=findUserByEmail_(identity.
 function findUserByEmail_(email){return readObjects_(SHEETS.users).find(u=>String(u.email||'').trim().toLowerCase()===String(email||'').trim().toLowerCase())||null;}
 function touchUserLogin_(identity){const sh=spreadsheet_().getSheetByName(SHEETS.users);if(!sh)return;const values=sh.getDataRange().getValues();if(values.length<2)return;const headers=values[0],map=headerMap_(headers);const idx=values.findIndex((r,i)=>i>0&&String(r[map.email]||'').trim().toLowerCase()===identity.email);if(idx<1)return;if(map.lastLogin!==undefined)values[idx][map.lastLogin]=date_('yyyy-MM-dd HH:mm');if(map.googleSub!==undefined)values[idx][map.googleSub]=identity.sub||'';sh.getRange(idx+1,1,1,headers.length).setValues([values[idx]]);}
 function permissionsForRole_(role){const row=readObjects_(SHEETS.rolePermissions).find(r=>String(r.role)===String(role)&&truthy_(r.active));if(!row)return {};const out={};Object.keys(row).forEach(k=>{if(k!=='role'&&k!=='label'&&k!=='active')out[k]=truthy_(row[k])});return out;}
-function enforceActionPermission_(action,p){const required={createRequest:'manageRequests',updateRequest:'manageRequests',updateProject:'manageProjects',createTask:'manageProjects',updateTask:'manageProjects',deleteTask:'manageProjects',listUsers:'manageUsers',setUserStatus:'approveUsers',setUserRole:'approveUsers',createNotification:'manageUsers'}[action];if(required&&!p[required])throw new Error('Your role is not authorized for this action');}
+function enforceActionPermission_(action,p){const required={createRequest:'manageRequests',updateRequest:'manageRequests',updateProject:'manageProjects',createTask:'manageProjects',updateTask:'manageProjects',deleteTask:'manageProjects',listPMWorklog:'manageProjects',createPMWorklog:'manageProjects',updatePMWorklog:'manageProjects',deletePMWorklog:'manageProjects',listUsers:'manageUsers',setUserStatus:'approveUsers',setUserRole:'approveUsers',createNotification:'manageUsers'}[action];if(required&&!p[required])throw new Error('Your role is not authorized for this action');}
 
 function getAllData_(){return {requests:readObjects_(SHEETS.requests),projects:readObjects_(SHEETS.projects),tasks:readObjects_(SHEETS.tasks),vendors:readObjects_(SHEETS.vendors),systems:readObjects_(SHEETS.systems),sops:readObjects_(SHEETS.sops),decisions:readObjects_(SHEETS.decisions),improvements:readObjects_(SHEETS.improvements),activity:readActivity_()};}
 function readObjects_(sheetName){const sh=spreadsheet_().getSheetByName(sheetName);if(!sh)return [];const values=sh.getDataRange().getDisplayValues();if(values.length<2)return [];const headers=values[0];return values.slice(1).filter(r=>r.some(Boolean)).map(row=>normalizeObject_(objectFromRow_(headers,row)));}
