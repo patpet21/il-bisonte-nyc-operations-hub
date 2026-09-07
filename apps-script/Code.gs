@@ -5,7 +5,7 @@ const SHEETS = {
   pmWorklog:'PM_WORKLOG'
 };
 
-const FIREBASE_WEB_API_KEY_FALLBACK='AIzaSyCoBEwYpj7x9y_JbUf-CYeUDV784MehpBY';
+const FIREBASE_WEB_API_KEY_FALLBACK='AIzaSyCoBEwYPj7x9y_JbUf-CYeUDV784MehpBY';
 const FIREBASE_PROJECT_ID_FALLBACK='il-bisonte-nyc-operations-hub';
 const READ_CACHE_TTL_SECONDS=20;
 const IDENTITY_CACHE_TTL_SECONDS=300;
@@ -149,7 +149,7 @@ function logActivity_(action,entityType,entityId,details,actor){const sh=spreads
 function adminEmails_(){const sh=spreadsheet_().getSheetByName(SHEETS.config);if(!sh)return [];const values=sh.getDataRange().getDisplayValues(),row=values.find((r,i)=>i>0&&String(r[0]).trim().toUpperCase()==='ADMIN_EMAILS');return row&&row[1]?String(row[1]).split(/[;,]/).map(x=>x.trim()).filter(Boolean):[];}
 function sendAdminEmail_(subject,body){adminEmails_().forEach(email=>safeSendEmail_(email,subject,body));}
 function safeSendEmail_(email,subject,body){try{if(!email||String(email).toLowerCase().endsWith('.local'))return false;MailApp.sendEmail({to:email,subject:subject||'Il Bisonte Operations',body:body||''});return true}catch(e){console.warn('Email failed: '+e.message);return false}}
-function nextId_(sheet,prefix){const lastRow=sheet.getLastRow();if(lastRow<2)return `${prefix}-0001`;const ids=sheet.getRange(2,1,lastRow-1,1).getDisplayValues().flat(),max=ids.reduce((m,id)=>Math.max(m,Number(String(id).split('-')[1])||0),0);return `${prefix}-${String(max+1).padStart(4,'0')}`;}
+function nextId_(sheet,prefix){const lastRow=sheet.getLastRow();if(lastRow<2)return `${prefix}-0001`;const ids=sheet.getRange(2,1,lastRow-1,1).getDisplayValues().flat(),max=ids.reduce((m,id)=>Math.max(m,Number(String(id).split('-')[1])||0,0),0);return `${prefix}-${String(max+1).padStart(4,'0')}`;}
 function rowToRequest_(row){return {id:row[0],title:row[1],category:row[2],priority:row[3],status:row[4],owner:row[5],requester:row[6],createdAt:row[7],updatedAt:row[8],nextAction:row[9],description:row[10],attachmentRef:row[11]};}
 function objectFromRow_(headers,row){const obj={};headers.forEach((h,i)=>obj[toCamel_(h)]=row[i]);return obj;}
 function headerMap_(headers){const map={};headers.forEach((h,i)=>map[toCamel_(h)]=i);return map;}
