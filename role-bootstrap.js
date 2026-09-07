@@ -30,6 +30,17 @@
     };
   }
 
+  // A stored Google token may still contain yesterday's role snapshot in local
+  // browser state. Keep the token/profile, but force the role/permissions to be
+  // re-resolved from Apps Script on every page load before operational data loads.
+  function invalidateCachedAuthorization(){
+    if(window.IB_CONFIG?.auth?.mode!=='google')return;
+    const session=window.IBAuth?.current?.();
+    if(!session?.idToken)return;
+    delete session.user;
+    delete session.permissions;
+  }
+
   // Production loading: authenticate/authorize first, then load workspace data.
   // This avoids an unauthorized/duplicate Apps Script request during sign-in,
   // deduplicates concurrent getAll calls and reuses a very short per-user cache.
@@ -118,6 +129,7 @@
     };
   }
 
+  invalidateCachedAuthorization();
   optimizeProductionLoading();
   addRequestReferenceLinks();
   normalizeDemoPermissions();
