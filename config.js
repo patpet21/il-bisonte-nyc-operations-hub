@@ -4,7 +4,7 @@ window.IB_CONFIG = {
   environment: "DEMO",
   storeName: "SoHo / Bleecker Street",
   dataMode: "demo",
-  appsScriptUrl: "",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwvzB0rtQuPqkETvOcPeYfHZBjyLdN68Ri4yljwgi1BVmgvtfPDRUV5ga9Hio_p3NXo/exec",
   auth: {
     mode: "demo",
     provider: "google",
