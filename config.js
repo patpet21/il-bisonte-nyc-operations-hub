@@ -1,14 +1,14 @@
 window.IB_CONFIG = {
   appName: "Il Bisonte NYC Operations Hub",
   appVersion: "0.10.0",
-  environment: "DEMO",
+  environment: "PRODUCTION",
   storeName: "SoHo / Bleecker Street",
-  dataMode: "demo",
+  dataMode: "apps_script",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwvzB0rtQuPqkETvOcPeYfHZBjyLdN68Ri4yljwgi1BVmgvtfPDRUV5ga9Hio_p3NXo/exec",
   auth: {
-    mode: "demo",
+    mode: "google",
     provider: "google",
-    googleClientId: "",
+    googleClientId: "820629414310-2si6rdduoj891f99lbdu401606a33l1o.apps.googleusercontent.com",
     requireApproval: true,
     allowedDomains: [],
     defaultRequestedRole: "store_manager"
