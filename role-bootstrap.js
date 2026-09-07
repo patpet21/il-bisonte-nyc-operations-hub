@@ -24,6 +24,53 @@
     session.permissions={...(session.permissions||{}),demo:true,manageProjects:['project_manager','management','it_admin'].includes(role)};
   }
 
+  function installFastSessionBootstrap(){
+    if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IB_CONFIG?.appsScriptUrl||typeof window.fetch!=='function')return;
+    if(window.__IB_FAST_BOOTSTRAP_INSTALLED)return;
+    window.__IB_FAST_BOOTSTRAP_INSTALLED=true;
+    const nativeFetch=window.fetch.bind(window);
+    const endpoint=String(window.IB_CONFIG.appsScriptUrl);
+    window.fetch=function(input,init){
+      try{
+        const url=typeof input==='string'?input:(input&&input.url)||'';
+        const body=init&&init.body;
+        if(url===endpoint&&body instanceof URLSearchParams&&body.get('action')==='bootstrap'){
+          const fastBody=new URLSearchParams(body.toString());
+          fastBody.set('action','getSession');
+          return nativeFetch(input,{...init,body:fastBody});
+        }
+      }catch(e){}
+      return nativeFetch(input,init);
+    };
+  }
+
+  function workspaceCacheKey(){
+    const s=window.IBAuth?.current?.();
+    const email=String(s?.user?.email||s?.profile?.email||'').trim().toLowerCase();
+    const role=String(s?.user?.role||'');
+    return email&&role?`ib_workspace_session_v01:${email}:${role}`:'';
+  }
+  function readWorkspaceCache(){
+    try{
+      const key=workspaceCacheKey();if(!key)return null;
+      const item=JSON.parse(sessionStorage.getItem(key)||'null');
+      if(!item||!item.data||Date.now()-Number(item.at||0)>60000)return null;
+      return item.data;
+    }catch(e){return null}
+  }
+  function writeWorkspaceCache(data){
+    try{const key=workspaceCacheKey();if(key&&data)sessionStorage.setItem(key,JSON.stringify({at:Date.now(),data}))}catch(e){}
+  }
+  function applyFreshWorkspace(data){
+    if(!data)return;
+    writeWorkspaceCache(data);
+    setTimeout(()=>{
+      try{
+        if(typeof App!=='undefined'&&App.data){App.data=data;if(typeof render==='function')render();}
+      }catch(e){}
+    },0);
+  }
+
   function optimizeProductionLoading(){
     if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IBData?.getAll||!window.IBAuth?.whenAuthorized)return;
     const originalGetAll=window.IBData.getAll.bind(window.IBData);
@@ -38,11 +85,30 @@
       showLoadingState();
       await window.IBAuth.whenAuthorized();
       const boot=window.IBAuth.takeBootstrapData?.();
-      if(boot)return boot;
+      if(boot){writeWorkspaceCache(boot);return boot;}
+
+      const cached=readWorkspaceCache();
+      if(cached){
+        if(!inflight){
+          inflight=originalGetAll().then(fresh=>{applyFreshWorkspace(fresh);return fresh;}).catch(()=>null).finally(()=>{inflight=null;});
+        }
+        return cached;
+      }
+
       if(inflight)return inflight;
-      inflight=originalGetAll().finally(()=>{inflight=null;});
+      inflight=originalGetAll().then(fresh=>{writeWorkspaceCache(fresh);return fresh;}).finally(()=>{inflight=null;});
       return inflight;
     };
+  }
+
+  function revealAuthorizedShellEarly(){
+    if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IBAuth?.whenAuthorized)return;
+    window.IBAuth.whenAuthorized().then(()=>{
+      const root=document.querySelector('#pageRoot');
+      if(root&&!root.innerHTML.trim())root.innerHTML='<div class="panel"><div class="empty">Loading workspace…</div></div>';
+      const gate=document.querySelector('#authRoot');
+      if(gate)gate.innerHTML='';
+    }).catch(()=>{});
   }
 
   function addRequestReferenceLinks(){
@@ -58,7 +124,9 @@
     };
   }
 
+  installFastSessionBootstrap();
   optimizeProductionLoading();
+  revealAuthorizedShellEarly();
   addRequestReferenceLinks();
   normalizeDemoPermissions();
   document.addEventListener('DOMContentLoaded',normalizeDemoPermissions);
