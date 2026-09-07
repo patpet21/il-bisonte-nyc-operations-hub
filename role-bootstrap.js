@@ -1,8 +1,6 @@
 (function(){
   if(typeof App==='undefined')return;
 
-  // IT Admin is the production super-user: one workspace with PM, management,
-  // operations, access-governance and credential visibility.
   App.nav.it_admin=[
     ['dashboard','▦','Admin Control Center'],
     ['roadmap','◆','Roadmap'],
@@ -23,99 +21,30 @@
     const session=window.IBAuth?.current?.();
     if(!session)return;
     const role=session.user?.role||App.role||'project_manager';
-    session.permissions={
-      ...(session.permissions||{}),
-      demo:true,
-      manageProjects:['project_manager','management','it_admin'].includes(role)
-    };
+    session.permissions={...(session.permissions||{}),demo:true,manageProjects:['project_manager','management','it_admin'].includes(role)};
   }
 
-  // A stored Google token may still contain yesterday's role snapshot in local
-  // browser state. Keep the token/profile, but force the role/permissions to be
-  // re-resolved from Apps Script on every page load before operational data loads.
-  function invalidateCachedAuthorization(){
-    if(window.IB_CONFIG?.auth?.mode!=='google')return;
-    const session=window.IBAuth?.current?.();
-    if(!session?.idToken)return;
-    delete session.user;
-    delete session.permissions;
-  }
-
-  // Production loading: authenticate/authorize first, then load workspace data.
-  // This avoids an unauthorized/duplicate Apps Script request during sign-in,
-  // deduplicates concurrent getAll calls and reuses a very short per-user cache.
   function optimizeProductionLoading(){
-    if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IBData?.getAll)return;
+    if(window.IB_CONFIG?.dataMode!=='apps_script'||!window.IBData?.getAll||!window.IBAuth?.whenAuthorized)return;
     const originalGetAll=window.IBData.getAll.bind(window.IBData);
     let inflight=null;
-    const CACHE_TTL=30000;
-
-    function waitForApprovedSession(){
-      if(window.IB_CONFIG?.auth?.mode!=='google')return Promise.resolve();
-      const ready=()=>{
-        const s=window.IBAuth?.current?.();
-        return Boolean(window.IBAuth?.getToken?.()&&String(s?.user?.status||'').toLowerCase()==='approved');
-      };
-      if(ready())return Promise.resolve();
-      return new Promise(resolve=>{
-        const timer=setInterval(()=>{
-          if(ready()){
-            clearInterval(timer);
-            resolve();
-          }
-        },80);
-      });
-    }
-
-    function cacheKey(){
-      const s=window.IBAuth?.current?.();
-      const identity=s?.user?.email||s?.profile?.email||'signed-user';
-      return 'ib_ops_data_cache_v1:'+String(identity).trim().toLowerCase();
-    }
-
-    function readCache(key){
-      try{
-        const cached=JSON.parse(sessionStorage.getItem(key)||'null');
-        if(cached?.data&&Date.now()-Number(cached.at||0)<CACHE_TTL)return cached.data;
-      }catch(e){}
-      return null;
-    }
 
     function showLoadingState(){
       const root=document.querySelector('#pageRoot');
       if(root&&!root.innerHTML.trim())root.innerHTML='<div class="panel"><div class="empty">Loading workspace…</div></div>';
     }
 
-    function fetchFresh(key){
-      if(inflight)return inflight;
-      showLoadingState();
-      inflight=originalGetAll().then(data=>{
-        try{sessionStorage.setItem(key,JSON.stringify({at:Date.now(),data:data}));}catch(e){}
-        return data;
-      }).finally(()=>{inflight=null;});
-      return inflight;
-    }
-
     window.IBData.getAll=async function(){
-      await waitForApprovedSession();
-      const key=cacheKey();
-      const cached=readCache(key);
-      if(cached){
-        // Render immediately from the recent session copy, then quietly refresh.
-        setTimeout(()=>fetchFresh(key).then(fresh=>{
-          if(typeof App!=='undefined'&&App.data&&fresh){
-            App.data=fresh;
-            if(typeof render==='function')render();
-          }
-        }).catch(()=>{}),0);
-        return cached;
-      }
-      return fetchFresh(key);
+      showLoadingState();
+      await window.IBAuth.whenAuthorized();
+      const boot=window.IBAuth.takeBootstrapData?.();
+      if(boot)return boot;
+      if(inflight)return inflight;
+      inflight=originalGetAll().finally(()=>{inflight=null;});
+      return inflight;
     };
   }
 
-  // Show safe HTTP(S) references directly in the request register. This makes
-  // procurement links such as REQ-0008 usable without exposing non-web schemes.
   function addRequestReferenceLinks(){
     if(typeof requestRows!=='function')return;
     requestRows=function(rows,actions){
@@ -129,12 +58,9 @@
     };
   }
 
-  invalidateCachedAuthorization();
   optimizeProductionLoading();
   addRequestReferenceLinks();
   normalizeDemoPermissions();
   document.addEventListener('DOMContentLoaded',normalizeDemoPermissions);
-  document.addEventListener('click',e=>{
-    if(e.target.closest?.('[data-demo-role]'))setTimeout(normalizeDemoPermissions,0);
-  },true);
+  document.addEventListener('click',e=>{if(e.target.closest?.('[data-demo-role]'))setTimeout(normalizeDemoPermissions,0)},true);
 })();
