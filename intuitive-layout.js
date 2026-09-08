@@ -193,13 +193,14 @@
 
   function observeWorklogWording(){
     const root=q('#pageRoot');if(!root)return;
+    const setText=(el,value)=>{if(el&&el.textContent!==value)el.textContent=value;};
     const apply=()=>{
       renameWorkNavigation();
       if(App.page!=='pmworklog')return;
       const head=q('.page-head',root);if(!head)return;
-      const title=q('.page-title',head);if(title)title.textContent='Peter Work & Time';
-      const sub=q('.page-subtitle',head);if(sub)sub.textContent='Activities, hours, billing and supporting records in one working register.';
-      const eyebrow=q('.eyebrow',head);if(eyebrow)eyebrow.textContent='WORK & TIME TRACKING';
+      setText(q('.page-title',head),'Peter Work & Time');
+      setText(q('.page-subtitle',head),'Activities, hours, billing and supporting records in one working register.');
+      setText(q('.eyebrow',head),'WORK & TIME TRACKING');
     };
     const observer=new MutationObserver(apply);observer.observe(root,{childList:true,subtree:true});apply();
   }
