@@ -18,6 +18,10 @@
 
 /* Overview: sections first, actions second. */
 .hub-overview{display:grid;gap:18px}
+.hub-quickbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--hub-hairline);border-radius:14px;background:var(--hub-section);overflow:hidden}
+.hub-quick-link{appearance:none;border:0;border-right:1px solid var(--hub-hairline);background:transparent;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer;font:inherit;min-width:0}
+.hub-quick-link:last-child{border-right:0}.hub-quick-link:hover{background:var(--hub-section-alt)}
+.hub-quick-link span{min-width:0}.hub-quick-link strong{display:block;font-size:13px;color:#252824}.hub-quick-link small{display:block;font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hub-quick-link b{font-size:17px;color:var(--green);font-weight:500}
 .hub-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--hub-hairline);border-radius:14px;background:var(--hub-section);overflow:hidden}
 .hub-summary-item{padding:16px 18px;min-width:0;border-right:1px solid var(--hub-hairline)}
 .hub-summary-item:last-child{border-right:0}
@@ -84,31 +88,63 @@
 .oc-health-card{box-shadow:none!important}
 .project-meta-card{box-shadow:none!important}
 
+/* Mobile account/tools live inside the sidebar instead of crowding the header. */
+.hub-mobile-tools{display:none}
+
 @media(max-width:1050px){
-  .hub-summary-strip{grid-template-columns:repeat(2,1fr)}
-  .hub-summary-item:nth-child(2){border-right:0}
-  .hub-summary-item:nth-child(-n+2){border-bottom:1px solid var(--hub-hairline)}
+  .hub-quickbar,.hub-summary-strip{grid-template-columns:repeat(2,1fr)}
+  .hub-quick-link:nth-child(2),.hub-summary-item:nth-child(2){border-right:0}
+  .hub-quick-link:nth-child(-n+2),.hub-summary-item:nth-child(-n+2){border-bottom:1px solid var(--hub-hairline)}
   .hub-two-col,.hub-three-col{grid-template-columns:1fr}
   .hub-links{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hub-link:nth-child(4n){border-right:1px solid var(--hub-hairline)}
   .hub-link:nth-child(2n){border-right:0}
 }
 
+@media(max-width:900px){
+  .hub-mobile-tools{display:grid;gap:7px;margin:18px 0 14px;padding:14px 0;border-top:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12)}
+  .hub-mobile-account{display:grid;gap:2px;padding:0 10px 8px;color:#f5eee1}.hub-mobile-account span{font-size:9px;letter-spacing:.18em;opacity:.65}.hub-mobile-account strong{font-size:13px}.hub-mobile-account small{font-size:10px;opacity:.68}
+  .hub-mobile-tools>button,.hub-mobile-role{width:100%;border:0;border-radius:9px;background:rgba(255,255,255,.08);color:#f7f0e5;padding:11px 12px;text-align:left;font:inherit;font-size:12px}
+  .hub-mobile-tools>button{cursor:pointer}.hub-mobile-role{display:grid;gap:6px}.hub-mobile-role select{width:100%;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:#173f36;color:#fff;padding:8px;font:inherit}
+}
+
 @media(max-width:700px){
-  .page-root{padding-top:16px!important}
-  .page-head{margin-bottom:16px!important}
+  /* Header becomes navigation-first: hamburger + bell, then search. Everything else moves to the sidebar. */
+  .topbar{grid-template-columns:44px minmax(0,1fr) auto!important;grid-template-areas:'toggle spacer actions' 'search search search'!important;padding:8px 10px 10px!important;gap:7px 9px!important;min-height:0!important}
+  .sidebar-toggle{grid-area:toggle!important;display:grid!important;place-items:center!important;width:42px!important;height:42px!important;border-radius:10px!important;font-size:20px!important;z-index:2}
+  .search-wrap{grid-area:search!important;width:100%!important}.search-wrap input{height:42px!important;font-size:15px!important;padding-left:38px!important}.search-icon{top:7px!important}
+  .topbar-actions{grid-area:actions!important;justify-self:end!important;gap:4px!important}.topbar-actions>.role-select,.topbar-actions>.role-label,.topbar-actions>#authSignOutBtn,.topbar-actions>.avatar,.topbar-actions>.env-badge{display:none!important}
+  .topbar-actions .notification-tools{display:flex!important;gap:4px!important}.topbar-actions #ibAccessRequestBtn,.topbar-actions #ibInstallBtn{display:none!important}.topbar-actions #ibNotificationBtn{display:grid!important;place-items:center!important;width:42px!important;height:42px!important;padding:0!important;border-radius:10px!important}.topbar-actions .access-label{display:none!important}
+
+  .page-root{padding:13px 10px 26px!important}
+  .page-head{margin-bottom:10px!important;gap:6px!important}
+  .page-head .eyebrow{font-size:9px!important;margin-bottom:4px!important}.page-title{font-size:31px!important;line-height:1.02!important}.page-subtitle{font-size:11px!important;line-height:1.4!important;max-width:95%}
   .date-card{display:none}
-  .hub-overview{gap:14px}
-  .hub-summary-strip{grid-template-columns:1fr}
-  .hub-summary-item{border-right:0!important;border-bottom:1px solid var(--hub-hairline)!important;padding:13px 15px}
-  .hub-summary-item:last-child{border-bottom:0!important}
-  .hub-section-head{padding:15px 15px 12px}
-  .hub-section-body{padding:0 15px}
-  .hub-row{grid-template-columns:1fr;gap:6px;padding:12px 0}
-  .hub-row-meta{justify-content:flex-start}
-  .hub-links{grid-template-columns:1fr}
-  .hub-link{border-right:0!important}
-  .pmw-kpis{grid-template-columns:1fr}
-  .pmw-kpi{border-right:0;border-bottom:1px solid var(--hub-hairline)}
-  .pmw-kpi:last-child{border-bottom:0}
+  .hub-overview{gap:10px}
+
+  /* Store status stays fully visible, but in one compact horizontal band. */
+  .oc-health-strip{margin:0 0 10px!important;padding:10px 11px!important;border-radius:12px!important;box-shadow:none!important}
+  .oc-health-head{align-items:center!important;flex-direction:row!important;gap:10px!important}.oc-health-head .eyebrow{display:none!important}.oc-health-head strong{font-size:18px!important;line-height:1.05!important;margin:0!important}.oc-health-head .btn{margin-left:auto!important;padding:7px 9px!important;min-height:36px!important;font-size:10px!important;white-space:nowrap}
+  .oc-health-chips{display:flex!important;flex-wrap:nowrap!important;gap:6px!important;margin-top:9px!important;overflow-x:auto!important;padding-bottom:2px!important;scrollbar-width:none}.oc-health-chips::-webkit-scrollbar{display:none}.oc-health-chip{flex:0 0 auto!important;white-space:nowrap!important;padding:5px 7px!important;font-size:9px!important}
+
+  /* Quick routes and KPI summaries are 2x2 instead of four giant stacked cards. */
+  .hub-quickbar,.hub-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;border-radius:12px}
+  .hub-quick-link{min-height:64px;padding:10px 11px!important;gap:6px}.hub-quick-link strong{font-size:12px}.hub-quick-link small{font-size:9px}.hub-quick-link b{font-size:15px}
+  .hub-summary-item{padding:10px 11px!important;min-height:76px;border-right:1px solid var(--hub-hairline)!important;border-bottom:1px solid var(--hub-hairline)!important}.hub-summary-item:nth-child(2n){border-right:0!important}.hub-summary-item:nth-last-child(-n+2){border-bottom:0!important}.hub-summary-item span{font-size:9px!important;line-height:1.25}.hub-summary-item strong{font-size:23px!important;margin-top:2px!important}.hub-summary-item small{display:none!important}
+
+  .hub-section{border-radius:12px}
+  .hub-section-head{padding:11px 12px 9px!important;align-items:center!important;gap:8px}.hub-section-head h2{font-size:21px!important}.hub-section-head p{display:none!important}.hub-section-action{font-size:10px!important;padding:5px 0!important}
+  .hub-section-body{padding:0 12px!important}
+  .hub-two-col{gap:10px!important}
+  .hub-three-col{gap:2px!important}.hub-three-col>.div,.hub-three-col>div{min-width:0}.hub-three-col .eyebrow{margin-top:11px!important;margin-bottom:2px!important;font-size:9px!important}
+  .hub-row{grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;padding:9px 0!important;align-items:center!important}.hub-row-title{font-size:12px!important}.hub-row-sub{font-size:10px!important;margin-top:2px!important}.hub-row-meta{font-size:9px!important;justify-content:flex-end!important;max-width:120px;overflow:hidden;text-overflow:ellipsis}.hub-priority{gap:5px}.hub-priority-dot{width:6px;height:6px}
+  .hub-links{grid-template-columns:repeat(2,minmax(0,1fr))!important}.hub-link{min-height:63px;padding:10px 11px!important;border-right:1px solid var(--hub-hairline)!important}.hub-link:nth-child(2n){border-right:0!important}.hub-link strong{font-size:11px!important}.hub-link span{font-size:9px!important;white-space:normal!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  /* Work tracking and operational KPI pages stay dense instead of stacking one card per row. */
+  .pmw-kpis,.oc-kpis,.pass-summary,.credentials-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .pmw-kpi,.oc-kpis>div,.pass-stat,.credentials-summary>.metric-box{padding:11px!important;min-width:0!important;border-right:1px solid var(--hub-hairline)!important;border-bottom:1px solid var(--hub-hairline)!important}.pmw-kpi:nth-child(2n),.oc-kpis>div:nth-child(2n),.pass-stat:nth-child(2n),.credentials-summary>.metric-box:nth-child(2n){border-right:0!important}.pmw-kpi:nth-last-child(-n+2),.oc-kpis>div:nth-last-child(-n+2),.pass-stat:nth-last-child(-n+2),.credentials-summary>.metric-box:nth-last-child(-n+2){border-bottom:0!important}.pmw-kpi span{font-size:9px!important}.pmw-kpi strong{font-size:22px!important}.pmw-kpi small{font-size:9px!important}
+}
+
+@media(max-width:390px){
+  .page-title{font-size:28px!important}.hub-row-meta{max-width:100px}.hub-quick-link small{display:none}.hub-quick-link{min-height:54px}.hub-link{min-height:58px}
 }
