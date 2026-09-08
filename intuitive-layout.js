@@ -31,7 +31,10 @@
   }
 
   function installDashboard(){
+    const previousPMDashboard=renderPMDashboard;
     renderPMDashboard=function(root){
+      if(!['project_manager','it_admin'].includes(App.role))return previousPMDashboard(root);
+
       const data=App.data||{};
       const projects=data.projects||[],requests=data.requests||[],vendors=data.vendors||[],systems=data.systems||[],activity=data.activity||[],improvements=data.improvements||[],decisions=data.decisions||[];
       const activeProjects=projects.filter(x=>!['Completed','Closed'].includes(x.status));
