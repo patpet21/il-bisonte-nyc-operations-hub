@@ -1,5 +1,10 @@
 (function(){
   const STORAGE_KEY='ib_pm_worklog_v1';
+  const REMOTE_CACHE_PREFIX='ib_pm_worklog_remote_v02:';
+  const REFRESH_TTL_MS=30000;
+  const REQUEST_TIMEOUT_MS=12000;
+  const VIEW_ROLES=new Set(['project_manager','management','it_admin']);
+  const EDIT_ROLES=new Set(['project_manager','it_admin']);
   const initialRows=[
     {entryId:'PML-0001',workDate:'2026-09-02',startTime:'10:30',endTime:'',hours:5,workMode:'On-site',category:'Project Coordination',projectId:'PRJ-0001',activity:'Firewall / infrastructure onsite coordination',description:'On-site coordination with store personnel and vendors during firewall and hardware work.',stakeholders:'Damiano / Store / Vendors',status:'Completed',billingType:'Hourly',rate:35,amount:175,invoiceStatus:'Not Invoiced',evidenceRef:'ACT-0001',notes:'Approx. 5 hours based on the confirmed average duration of the recent onsite sessions.',createdAt:'2026-09-07 11:16',updatedAt:'2026-09-07 11:16'},
     {entryId:'PML-0002',workDate:'2026-09-03',startTime:'',endTime:'',hours:5,workMode:'On-site',category:'Troubleshooting & Coordination',projectId:'PRJ-0003',activity:'Network / Retail Pro Prism investigation and coordination',description:'On-site network, VPN, DNS and Retail Pro Prism troubleshooting coordination with follow-up to Damiano and Italy IT.',stakeholders:'Damiano / Italy IT / Vendors',status:'Completed',billingType:'Hourly',rate:35,amount:175,invoiceStatus:'Not Invoiced',evidenceRef:'ACT-0003',notes:'Approx. 5 hours based on the confirmed average duration of the recent onsite sessions.',createdAt:'2026-09-07 11:16',updatedAt:'2026-09-07 11:16'},
@@ -10,15 +15,31 @@
   let rows=[];
   let loaded=false;
   let monthFilter='all';
+  let sourceState='idle';
+  let syncError='';
+  let refreshPromise=null;
+  let lastRefreshAt=0;
 
   function escHtml(value){return String(value??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));}
   function number(value){const n=Number(String(value??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0;}
   function money(value){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(number(value));}
   function hoursLabel(value){const n=number(value);return n?`${n.toFixed(2)} h`:'—';}
-  function isBackend(){return window.IB_CONFIG?.dataMode==='apps_script'&&Boolean(window.IB_CONFIG?.appsScriptUrl);}
   function clone(value){return JSON.parse(JSON.stringify(value));}
+  function isBackend(){return window.IB_CONFIG?.dataMode==='apps_script'&&Boolean(window.IB_CONFIG?.appsScriptUrl);}
+  function session(){try{return window.IBAuth?.current?.()||null}catch(e){return null}}
+  function currentRole(){return String(session()?.user?.role||window.IB_CURRENT_USER?.role||(typeof App!=='undefined'?App.role:'')||'');}
+  function canView(){return !isBackend()||VIEW_ROLES.has(currentRole());}
+  function canEdit(){return !isBackend()||EDIT_ROLES.has(currentRole());}
+  function currentEmail(){return String(session()?.user?.email||session()?.profile?.email||window.IB_CURRENT_USER?.email||'').trim().toLowerCase();}
+  function remoteCacheKey(){const email=currentEmail(),role=currentRole();return email&&role?`${REMOTE_CACHE_PREFIX}${email}:${role}`:'';}
+  function readRemoteCache(){
+    try{const key=remoteCacheKey();if(!key)return null;const item=JSON.parse(localStorage.getItem(key)||'null');return item&&Array.isArray(item.rows)?item:null}catch(e){return null}
+  }
+  function writeRemoteCache(next){
+    try{const key=remoteCacheKey();if(key&&Array.isArray(next))localStorage.setItem(key,JSON.stringify({at:Date.now(),rows:next}))}catch(e){}
+  }
   function currentRows(){
-    if(isBackend()) return rows;
+    if(isBackend())return rows;
     const raw=localStorage.getItem(STORAGE_KEY);
     if(raw){try{return JSON.parse(raw)}catch(e){}}
     localStorage.setItem(STORAGE_KEY,JSON.stringify(initialRows));
@@ -26,74 +47,117 @@
   }
   function saveLocal(next){rows=clone(next);localStorage.setItem(STORAGE_KEY,JSON.stringify(rows));}
   function nextId(){const max=currentRows().reduce((m,r)=>Math.max(m,Number(String(r.entryId||'').split('-')[1])||0),0);return `PML-${String(max+1).padStart(4,'0')}`;}
+
+  function withTimeout(promise,ms=REQUEST_TIMEOUT_MS){
+    return new Promise((resolve,reject)=>{
+      const t=setTimeout(()=>reject(new Error('Worklog sync timed out. The last available records remain visible.')),ms);
+      Promise.resolve(promise).then(v=>{clearTimeout(t);resolve(v)},e=>{clearTimeout(t);reject(e)});
+    });
+  }
+
   async function apiCall(action,payload={}){
-    const url=window.IB_CONFIG.appsScriptUrl;
-    const idToken=window.IBAuth?.getToken?.()||'';
+    if(window.IBAuth?.backend)return withTimeout(window.IBAuth.backend(action,payload));
+    const url=window.IB_CONFIG.appsScriptUrl,idToken=window.IBAuth?.getToken?.()||'';
     const body=new URLSearchParams({action,payload:JSON.stringify(payload),idToken});
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body});
+    const res=await withTimeout(fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body}));
     if(!res.ok)throw new Error(`Backend error ${res.status}`);
-    const json=await res.json();
-    if(json.error)throw new Error(json.error);
-    return json.data;
+    const json=await res.json();if(json.error)throw new Error(json.error);return json.data;
   }
-  async function loadRows(force=false){
-    if(loaded&&!force)return rows;
-    rows=isBackend()?await apiCall('listPMWorklog'):currentRows();
-    loaded=true;
-    return rows;
+
+  function primeRows(){
+    if(loaded)return;
+    if(!isBackend()){
+      rows=currentRows();sourceState='local';loaded=true;return;
+    }
+    if(!canView()){
+      rows=[];sourceState='denied';loaded=true;return;
+    }
+    const boot=(typeof App!=='undefined'&&Array.isArray(App.data?.pmWorklog))?App.data.pmWorklog:null;
+    if(boot){
+      rows=clone(boot);sourceState='live';lastRefreshAt=Date.now();writeRemoteCache(rows);loaded=true;return;
+    }
+    const cached=readRemoteCache();
+    if(cached){rows=clone(cached.rows);sourceState='cache';loaded=true;return;}
+    rows=clone(initialRows);sourceState='baseline';loaded=true;
   }
+
+  async function refreshRows(force=false){
+    if(!isBackend()||!canView())return rows;
+    if(refreshPromise)return refreshPromise;
+    if(!force&&sourceState==='live'&&Date.now()-lastRefreshAt<REFRESH_TTL_MS)return rows;
+    syncError='';
+    if(sourceState!=='live')sourceState='syncing';
+    refreshPromise=(async()=>{
+      const fresh=await apiCall('listPMWorklog');
+      if(!Array.isArray(fresh))throw new Error('The worklog backend returned an invalid response.');
+      rows=clone(fresh);loaded=true;sourceState='live';lastRefreshAt=Date.now();writeRemoteCache(rows);
+      try{if(typeof App!=='undefined'&&App.data)App.data.pmWorklog=clone(rows)}catch(e){}
+      return rows;
+    })().catch(err=>{
+      syncError=String(err?.message||err||'Unable to sync the worklog.');
+      if(sourceState==='syncing')sourceState=readRemoteCache()?'cache':'baseline';
+      return rows;
+    }).finally(()=>{
+      refreshPromise=null;
+      if(typeof App!=='undefined'&&App.page==='pmworklog')renderPMWorklog(document.querySelector('#pageRoot'),{skipRefresh:true});
+    });
+    return refreshPromise;
+  }
+
   function projectName(id){const p=((typeof App!=='undefined'?App.data?.projects:null)||[]).find(x=>x.id===id);return p?p.name:(id||'General / Multi-project');}
-  function availableMonths(){const vals=[...new Set(rows.map(r=>String(r.workDate||'').slice(0,7)).filter(x=>/^\d{4}-\d{2}$/.test(x)))].sort().reverse();return vals;}
+  function availableMonths(){return [...new Set(rows.map(r=>String(r.workDate||'').slice(0,7)).filter(x=>/^\d{4}-\d{2}$/.test(x)))].sort().reverse();}
   function filteredRows(){return rows.filter(r=>monthFilter==='all'||String(r.workDate||'').startsWith(monthFilter));}
-  function totals(list){return list.reduce((a,r)=>{const h=number(r.hours),amt=number(r.amount);a.entries+=1;a.hours+=h;a.amount+=amt;if(String(r.workMode).toLowerCase()==='on-site')a.onsite+=h;if(String(r.workMode).toLowerCase()==='remote')a.remote+=h;if(!['Paid','Not Billable'].includes(String(r.invoiceStatus||'')))a.openAmount+=amt;return a;},{entries:0,hours:0,onsite:0,remote:0,amount:0,openAmount:0});}
-  function categoryBreakdown(list){
-    const map={};list.forEach(r=>{const k=r.category||'Other';map[k]=(map[k]||0)+number(r.hours)});
-    return Object.entries(map).sort((a,b)=>b[1]-a[1]);
-  }
-  function renderSummary(list){const t=totals(list);return `<div class="pmw-kpis">
-    <div class="pmw-kpi"><span>Tracked hours</span><strong>${t.hours.toFixed(2)}</strong><small>${t.entries} work records</small></div>
-    <div class="pmw-kpi"><span>On-site hours</span><strong>${t.onsite.toFixed(2)}</strong><small>Physical store / vendor work</small></div>
-    <div class="pmw-kpi"><span>Remote hours</span><strong>${t.remote.toFixed(2)}</strong><small>Only explicitly tracked hours</small></div>
-    <div class="pmw-kpi"><span>Recorded value</span><strong>${money(t.amount)}</strong><small>${money(t.openAmount)} not paid / not closed</small></div>
-  </div>`;}
-  function renderBreakdown(list){
-    const parts=categoryBreakdown(list).filter(([,h])=>h>0);
-    if(!parts.length)return '<div class="pmw-empty">No hourly category data for this filter.</div>';
-    return parts.map(([name,h])=>`<div class="pmw-break-row"><span>${escHtml(name)}</span><strong>${h.toFixed(2)} h</strong></div>`).join('');
-  }
-  function renderTable(list){
+  function totals(list){return list.reduce((a,r)=>{const h=number(r.hours),amt=number(r.amount);a.entries++;a.hours+=h;a.amount+=amt;if(String(r.workMode).toLowerCase()==='on-site')a.onsite+=h;if(String(r.workMode).toLowerCase()==='remote')a.remote+=h;if(!['Paid','Not Billable'].includes(String(r.invoiceStatus||'')))a.openAmount+=amt;return a;},{entries:0,hours:0,onsite:0,remote:0,amount:0,openAmount:0});}
+  function categoryBreakdown(list){const map={};list.forEach(r=>{const k=r.category||'Other';map[k]=(map[k]||0)+number(r.hours)});return Object.entries(map).sort((a,b)=>b[1]-a[1]);}
+  function renderSummary(list){const t=totals(list);return `<div class="pmw-kpis"><div class="pmw-kpi"><span>Tracked hours</span><strong>${t.hours.toFixed(2)}</strong><small>${t.entries} work records</small></div><div class="pmw-kpi"><span>On-site hours</span><strong>${t.onsite.toFixed(2)}</strong><small>Physical store / vendor work</small></div><div class="pmw-kpi"><span>Remote hours</span><strong>${t.remote.toFixed(2)}</strong><small>Only explicitly tracked hours</small></div><div class="pmw-kpi"><span>Recorded value</span><strong>${money(t.amount)}</strong><small>${money(t.openAmount)} not paid / not closed</small></div></div>`;}
+  function renderBreakdown(list){const parts=categoryBreakdown(list).filter(([,h])=>h>0);if(!parts.length)return '<div class="pmw-empty">No hourly category data for this filter.</div>';return parts.map(([name,h])=>`<div class="pmw-break-row"><span>${escHtml(name)}</span><strong>${h.toFixed(2)} h</strong></div>`).join('');}
+  function renderTable(list,editable){
     if(!list.length)return '<div class="pmw-empty">No work entries match this filter.</div>';
-    return `<div class="pmw-table-wrap"><table class="pmw-table"><thead><tr><th>Date</th><th>Activity</th><th>Project</th><th>Mode</th><th>Hours</th><th>Billing</th><th>Amount</th><th>Invoice</th><th></th></tr></thead><tbody>${list.map(r=>`<tr>
-      <td>${escHtml(r.workDate||'Historical')}</td>
-      <td><strong>${escHtml(r.activity)}</strong><small>${escHtml(r.category||'')}</small></td>
-      <td>${escHtml(projectName(r.projectId))}</td>
-      <td><span class="pmw-chip">${escHtml(r.workMode||'—')}</span></td>
-      <td>${hoursLabel(r.hours)}</td>
-      <td>${escHtml(r.billingType||'—')}${r.rate?`<small>${money(r.rate)}/hr</small>`:''}</td>
-      <td><strong>${money(r.amount)}</strong></td>
-      <td>${escHtml(r.invoiceStatus||'—')}</td>
-      <td><div class="pmw-actions"><button class="btn pmw-edit" data-id="${escHtml(r.entryId)}">Edit</button><button class="btn pmw-delete" data-id="${escHtml(r.entryId)}">Delete</button></div></td>
-    </tr>`).join('')}</tbody></table></div>`;
+    const actionHead=editable?'<th></th>':'';
+    return `<div class="pmw-table-wrap"><table class="pmw-table"><thead><tr><th>Date</th><th>Activity</th><th>Project</th><th>Mode</th><th>Hours</th><th>Billing</th><th>Amount</th><th>Invoice</th>${actionHead}</tr></thead><tbody>${list.map(r=>`<tr><td>${escHtml(r.workDate||'Historical')}</td><td><strong>${escHtml(r.activity)}</strong><small>${escHtml(r.category||'')}</small></td><td>${escHtml(projectName(r.projectId))}</td><td><span class="pmw-chip">${escHtml(r.workMode||'—')}</span></td><td>${hoursLabel(r.hours)}</td><td>${escHtml(r.billingType||'—')}${r.rate?`<small>${money(r.rate)}/hr</small>`:''}</td><td><strong>${money(r.amount)}</strong></td><td>${escHtml(r.invoiceStatus||'—')}</td>${editable?`<td><div class="pmw-actions"><button class="btn pmw-edit" data-id="${escHtml(r.entryId)}">Edit</button><button class="btn pmw-delete" data-id="${escHtml(r.entryId)}">Delete</button></div></td>`:''}</tr>`).join('')}</tbody></table></div>`;
   }
-  async function renderPMWorklog(root){
+
+  function sourceLabel(){
+    if(!isBackend())return 'Demo mode · local browser copy';
+    if(sourceState==='live')return 'Live · Google Sheet / Apps Script';
+    if(sourceState==='syncing')return 'Opening saved records · syncing live data…';
+    if(sourceState==='cache')return 'Saved worklog snapshot · live refresh in background';
+    if(sourceState==='baseline')return 'Baseline snapshot · live refresh in background';
+    return 'Google Sheet / Apps Script';
+  }
+
+  function statusBanner(){
+    const role=currentRole();
+    const review=role==='management'?'<div class="pmw-note"><strong>Review access</strong><p>Management can review Peter’s work, hours and billing records. Editing remains restricted to the PM/IT administration workflow.</p></div>':'';
+    const error=syncError?`<div class="panel pmw-error"><strong>Live sync issue</strong><div>${escHtml(syncError)}</div><div class="muted">The page is not blocked: the last available records remain visible. Use Refresh to try again.</div></div>`:'';
+    return review+error;
+  }
+
+  function renderPMWorklog(root,options={}){
     if(!root)return;
-    root.innerHTML=(typeof pageHead==='function'?pageHead('My PM Work & Hours','Track what I do, where the time goes, and what has been billed.','PROJECT MANAGER WORKLOG'):'<h1>My PM Work & Hours</h1>')+'<div class="panel"><div class="pmw-loading">Loading worklog…</div></div>';
-    try{await loadRows();}catch(err){root.innerHTML+=`<div class="panel pmw-error">${escHtml(err.message)}</div>`;return;}
-    const list=filteredRows();
+    if(!canView()){
+      root.innerHTML=(typeof pageHead==='function'?pageHead('Peter Work & Time','This worklog is available to Project Management, Management and IT Administration.','WORK & TIME TRACKING'):'<h1>Peter Work & Time</h1>')+'<div class="panel pmw-error">Your current role does not have access to Peter’s worklog.</div>';
+      return;
+    }
+    primeRows();
+    const list=filteredRows(),editable=canEdit()&&(!isBackend()||sourceState==='live');
     const monthOptions=['<option value="all">All periods</option>',...availableMonths().map(m=>`<option value="${m}" ${m===monthFilter?'selected':''}>${m}</option>`)].join('');
-    root.innerHTML=(typeof pageHead==='function'?pageHead('My PM Work & Hours','Track what I do, where the time goes, and what has been billed.','PROJECT MANAGER WORKLOG'):'')+
-      `<div class="pmw-toolbar"><div><label for="pmwMonth">Period</label><select id="pmwMonth">${monthOptions}</select></div><div class="pmw-source"><span class="pmw-dot"></span>${isBackend()?'Google Sheet / Apps Script':'Demo mode · local browser copy'}</div><button class="btn primary" id="pmwAdd">+ Log work</button></div>`+
-      renderSummary(list)+
-      `<div class="pmw-grid"><div class="panel"><div class="panel-head"><h3>Work register</h3><span class="muted">${list.length} records</span></div>${renderTable(list)}</div><div class="panel pmw-side"><div class="panel-head"><h3>Hours by category</h3></div>${renderBreakdown(list)}<div class="pmw-note"><strong>Tracking rule</strong><p>Unknown historical hours stay blank. Flat-fee work remains visible without converting it into invented hours.</p></div></div></div>`;
-    document.querySelector('#pmwMonth')?.addEventListener('change',e=>{monthFilter=e.target.value;renderPMWorklog(root)});
+    root.innerHTML=(typeof pageHead==='function'?pageHead('Peter Work & Time','Activities, hours, billing and supporting records in one working register.','WORK & TIME TRACKING'):'<h1>Peter Work & Time</h1>')+
+      `<div class="pmw-toolbar"><div><label for="pmwMonth">Period</label><select id="pmwMonth">${monthOptions}</select></div><div class="pmw-source"><span class="pmw-dot"></span>${escHtml(sourceLabel())}</div><button class="btn" id="pmwRefresh">Refresh</button>${editable?'<button class="btn primary" id="pmwAdd">+ Log work</button>':''}</div>`+
+      statusBanner()+renderSummary(list)+
+      `<div class="pmw-grid"><div class="panel"><div class="panel-head"><h3>Work register</h3><span class="muted">${list.length} records</span></div>${renderTable(list,editable)}</div><div class="panel pmw-side"><div class="panel-head"><h3>Hours by category</h3></div>${renderBreakdown(list)}<div class="pmw-note"><strong>Tracking rule</strong><p>Unknown historical hours stay blank. Flat-fee work remains visible without converting it into invented hours.</p></div></div></div>`;
+    document.querySelector('#pmwMonth')?.addEventListener('change',e=>{monthFilter=e.target.value;renderPMWorklog(root,{skipRefresh:true})});
+    document.querySelector('#pmwRefresh')?.addEventListener('click',e=>{e.currentTarget.disabled=true;refreshRows(true)});
     document.querySelector('#pmwAdd')?.addEventListener('click',()=>openEditor());
     document.querySelectorAll('.pmw-edit').forEach(b=>b.addEventListener('click',()=>openEditor(rows.find(r=>r.entryId===b.dataset.id))));
     document.querySelectorAll('.pmw-delete').forEach(b=>b.addEventListener('click',()=>removeEntry(b.dataset.id)));
+    if(!options.skipRefresh&&isBackend()&&(sourceState!=='live'||Date.now()-lastRefreshAt>=REFRESH_TTL_MS))setTimeout(()=>refreshRows(false),0);
   }
 
   function field(name,label,input,wide=false){return `<label class="pmw-field ${wide?'wide':''}"><span>${label}</span>${input.replace('NAME',`name="${name}"`)}</label>`;}
   function projectOptions(value){return `<option value="">General / Multi-project</option>${((typeof App!=='undefined'?App.data?.projects:null)||[]).map(p=>`<option value="${escHtml(p.id)}" ${p.id===value?'selected':''}>${escHtml(p.id)} · ${escHtml(p.name)}</option>`).join('')}`;}
   function openEditor(row=null){
+    if(!canEdit()||(isBackend()&&sourceState!=='live')){if(typeof toast==='function')toast('Live PM edit access is not available for this account right now.');return;}
     const r=row||{workDate:new Date().toISOString().slice(0,10),startTime:'',endTime:'',hours:'',workMode:'Remote',category:'Project Coordination',projectId:'',activity:'',description:'',stakeholders:'',status:'Completed',billingType:'Hourly',rate:35,amount:'',invoiceStatus:'Not Invoiced',evidenceRef:'',notes:''};
     const modal=document.createElement('div');modal.className='pmw-modal';modal.innerHTML=`<div class="pmw-modal-card"><div class="pmw-modal-head"><div><div class="eyebrow">PM WORKLOG</div><h2>${row?'Edit work entry':'Log new work'}</h2></div><button class="pmw-close" aria-label="Close">×</button></div><form id="pmwForm" class="pmw-form">
       ${field('workDate','Work date',`<input NAME type="date" value="${escHtml(r.workDate||'')}">`)}
@@ -115,30 +179,39 @@
       <div class="pmw-form-actions"><button type="button" class="btn pmw-cancel">Cancel</button><button type="submit" class="btn primary">${row?'Save changes':'Add work entry'}</button></div>
     </form></div>`;
     document.body.appendChild(modal);
-    const form=modal.querySelector('#pmwForm');
-    const close=()=>modal.remove();
+    const form=modal.querySelector('#pmwForm'),close=()=>modal.remove();
     modal.querySelector('.pmw-close').onclick=close;modal.querySelector('.pmw-cancel').onclick=close;modal.addEventListener('click',e=>{if(e.target===modal)close()});
     const recalc=()=>{const fd=new FormData(form),billing=fd.get('billingType'),h=number(fd.get('hours')),rate=number(fd.get('rate'));if(billing==='Hourly'&&h&&rate)form.elements.amount.value=(h*rate).toFixed(2);if(billing==='Non-Billable'){form.elements.amount.value='0';form.elements.invoiceStatus.value='Not Billable';}};
-    const fromTimes=()=>{const s=form.elements.startTime.value,e=form.elements.endTime.value;if(!s||!e)return;const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);let mins=(eh*60+em)-(sh*60+sm);if(mins>=0){form.elements.hours.value=(mins/60).toFixed(2);recalc();}};
+    const fromTimes=()=>{const s=form.elements.startTime.value,e=form.elements.endTime.value;if(!s||!e)return;const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number),mins=(eh*60+em)-(sh*60+sm);if(mins>=0){form.elements.hours.value=(mins/60).toFixed(2);recalc();}};
     ['startTime','endTime'].forEach(n=>form.elements[n].addEventListener('change',fromTimes));['hours','rate','billingType'].forEach(n=>form.elements[n].addEventListener('input',recalc));
-    form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());data.hours=data.hours===''?'':number(data.hours);data.rate=data.rate===''?'':number(data.rate);data.amount=data.amount===''?0:number(data.amount);try{await persistEntry(row?.entryId||'',data);close();loaded=false;await loadRows(true);renderPMWorklog(document.querySelector('#pageRoot'));if(typeof toast==='function')toast(row?'Work entry updated':'Work entry logged');}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}});
-  }
-  async function persistEntry(id,data){
-    if(isBackend())return id?apiCall('updatePMWorklog',{id,patch:data}):apiCall('createPMWorklog',data);
-    const next=currentRows();const now=new Date().toLocaleString();
-    if(id){const row=next.find(x=>x.entryId===id);if(!row)throw new Error('Work entry not found');Object.assign(row,data,{updatedAt:now});}
-    else next.unshift({entryId:nextId(),...data,createdAt:now,updatedAt:now});
-    saveLocal(next);return true;
-  }
-  async function removeEntry(id){
-    if(!confirm(`Delete ${id}? The production Activity Log will still preserve the audit event.`))return;
-    try{if(isBackend())await apiCall('deletePMWorklog',{id});else saveLocal(currentRows().filter(x=>x.entryId!==id));loaded=false;await loadRows(true);renderPMWorklog(document.querySelector('#pageRoot'));if(typeof toast==='function')toast(`${id} removed`);}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}
+    form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());data.hours=data.hours===''?'':number(data.hours);data.rate=data.rate===''?'':number(data.rate);data.amount=data.amount===''?0:number(data.amount);try{await persistEntry(row?.entryId||'',data);close();await refreshRows(true);if(typeof toast==='function')toast(row?'Work entry updated':'Work entry logged');}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}});
   }
 
-  if((typeof App!=='undefined'?App.nav?.project_manager:null)&&!App.nav.project_manager.some(x=>x[0]==='pmworklog'))App.nav.project_manager.splice(1,0,['pmworklog','◷','My PM Work']);
+  async function persistEntry(id,data){
+    if(isBackend())return id?apiCall('updatePMWorklog',{id,patch:data}):apiCall('createPMWorklog',data);
+    const next=currentRows(),now=new Date().toLocaleString();
+    if(id){const row=next.find(x=>x.entryId===id);if(!row)throw new Error('Work entry not found');Object.assign(row,data,{updatedAt:now});}
+    else next.unshift({entryId:nextId(),...data,createdAt:now,updatedAt:now});
+    saveLocal(next);renderPMWorklog(document.querySelector('#pageRoot'),{skipRefresh:true});return true;
+  }
+
+  async function removeEntry(id){
+    if(!canEdit()||(isBackend()&&sourceState!=='live'))return;
+    if(!confirm(`Delete ${id}? The production Activity Log will still preserve the audit event.`))return;
+    try{if(isBackend())await apiCall('deletePMWorklog',{id});else saveLocal(currentRows().filter(x=>x.entryId!==id));await refreshRows(true);if(typeof toast==='function')toast(`${id} removed`);}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}
+  }
+
+  function ensureNav(role,index=1){
+    if(typeof App==='undefined'||!App.nav?.[role])return;
+    const list=App.nav[role],existing=list.find(x=>x[0]==='pmworklog');
+    if(existing){existing[2]='Peter Work & Time';return;}
+    list.splice(Math.min(index,list.length),0,['pmworklog','◷','Peter Work & Time']);
+  }
+  ensureNav('project_manager',1);ensureNav('management',1);ensureNav('it_admin',2);
+
   if(typeof renderPage==='function'){
     const baseRenderPage=renderPage;
     renderPage=function(){if(typeof App!=='undefined'&&App.page==='pmworklog')return renderPMWorklog(document.querySelector('#pageRoot'));return baseRenderPage();};
   }
-  window.IBPMWorklog={render:renderPMWorklog,reload:()=>loadRows(true)};
+  window.IBPMWorklog={render:renderPMWorklog,reload:()=>refreshRows(true),canView,canEdit};
 })();

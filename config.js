@@ -1,6 +1,6 @@
 window.IB_CONFIG = {
   appName: "Il Bisonte NYC Operations Hub",
-  appVersion: "0.10.1",
+  appVersion: "0.10.2",
   environment: "PRODUCTION",
   storeName: "SoHo / Bleecker Street",
   dataMode: "apps_script",

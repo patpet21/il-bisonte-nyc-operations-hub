@@ -1,20 +1,32 @@
+const PM_WORKLOG_VIEW_ROLES_=['project_manager','management','it_admin'];
+const PM_WORKLOG_EDIT_ROLES_=['project_manager','it_admin'];
+
+function canViewPMWorklog_(user){return PM_WORKLOG_VIEW_ROLES_.indexOf(String(user&&user.role||''))>=0;}
+function canEditPMWorklog_(user){return PM_WORKLOG_EDIT_ROLES_.indexOf(String(user&&user.role||''))>=0;}
+function enforcePMWorklogView_(user){if(!canViewPMWorklog_(user))throw new Error('Your role is not authorized to view Peter work records');}
+function enforcePMWorklogEdit_(user){if(!canEditPMWorklog_(user))throw new Error('Your role has review-only access to Peter work records');}
+
 function listPMWorklog_(user){
+  enforcePMWorklogView_(user);
   return readObjects_(SHEETS.pmWorklog);
 }
 
 function createPMWorklog_(payload,user){
+  enforcePMWorklogEdit_(user);
   const sh=spreadsheet_().getSheetByName(SHEETS.pmWorklog);
   if(!sh)throw new Error('PM_WORKLOG sheet not found');
   const headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
   const now=date_('yyyy-MM-dd HH:mm');
   const obj=normalizePMWorklog_(Object.assign({},payload,{entryId:nextId_(sh,'PML'),createdAt:now,updatedAt:now}));
   sh.appendRow(headers.map(h=>obj[toCamel_(h)]!==undefined?obj[toCamel_(h)] : ''));
+  invalidateSheetCache_(SHEETS.pmWorklog);
   const actor=user.displayName||user.email||'Project Manager';
   logActivity_('PM work logged','PM_WORKLOG',obj.entryId,pmWorklogAuditText_(obj),actor);
   return normalizeObject_(obj);
 }
 
 function updatePMWorklog_(id,patch,user){
+  enforcePMWorklogEdit_(user);
   if(!id)throw new Error('Missing id');
   const sh=spreadsheet_().getSheetByName(SHEETS.pmWorklog);
   if(!sh)throw new Error('PM_WORKLOG sheet not found');
@@ -30,12 +42,14 @@ function updatePMWorklog_(id,patch,user){
   next.entryId=id;next.createdAt=current.createdAt||date_('yyyy-MM-dd HH:mm');next.updatedAt=date_('yyyy-MM-dd HH:mm');
   const normalized=normalizePMWorklog_(next);
   sh.getRange(idx+1,1,1,headers.length).setValues([headers.map(h=>normalized[toCamel_(h)]!==undefined?normalized[toCamel_(h)] : '')]);
+  invalidateSheetCache_(SHEETS.pmWorklog);
   const actor=user.displayName||user.email||'Project Manager';
   logActivity_('PM work updated','PM_WORKLOG',id,pmWorklogAuditText_(normalized),actor);
   return normalizeObject_(normalized);
 }
 
 function deletePMWorklog_(id,user){
+  enforcePMWorklogEdit_(user);
   if(!id)throw new Error('Missing id');
   const sh=spreadsheet_().getSheetByName(SHEETS.pmWorklog);
   if(!sh)throw new Error('PM_WORKLOG sheet not found');
@@ -44,6 +58,7 @@ function deletePMWorklog_(id,user){
   if(idx<1)return {ok:true};
   const current=normalizeObject_(objectFromRow_(headers,values[idx]));
   sh.deleteRow(idx+1);
+  invalidateSheetCache_(SHEETS.pmWorklog);
   const actor=user.displayName||user.email||'Project Manager';
   logActivity_('PM work removed','PM_WORKLOG',id,pmWorklogAuditText_(current),actor);
   return {ok:true,id:id};

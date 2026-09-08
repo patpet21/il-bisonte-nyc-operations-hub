@@ -26,7 +26,7 @@ function doPost(e){
     else{
       const session=requireApprovedSession_(identity);
       enforceActionPermission_(action,session.permissions);
-      if(action==='getAll') data=getAllData_();
+      if(action==='getAll'){data=getAllData_();if(canViewPMWorklog_(session.user))data.pmWorklog=listPMWorklog_(session.user);}
       else if(action==='translateBatch') data=translateBatch_(payload,session.user);
       else if(action==='createRequest') data=createRequest_(payload,session.user);
       else if(action==='updateRequest') data=updateRequest_(payload.id,payload.patch||{},session.user);
@@ -34,10 +34,10 @@ function doPost(e){
       else if(action==='createTask') data=createTask_(payload,session.user);
       else if(action==='updateTask') data=updateTask_(payload.id,payload.patch||{},session.user);
       else if(action==='deleteTask') data=deleteTask_(payload.id,session.user);
-      else if(action==='listPMWorklog') data=listPMWorklog_(session.user);
-      else if(action==='createPMWorklog') data=createPMWorklog_(payload,session.user);
-      else if(action==='updatePMWorklog') data=updatePMWorklog_(payload.id,payload.patch||{},session.user);
-      else if(action==='deletePMWorklog') data=deletePMWorklog_(payload.id,session.user);
+      else if(action==='listPMWorklog'){enforcePMWorklogView_(session.user);data=listPMWorklog_(session.user);}
+      else if(action==='createPMWorklog'){enforcePMWorklogEdit_(session.user);data=createPMWorklog_(payload,session.user);}
+      else if(action==='updatePMWorklog'){enforcePMWorklogEdit_(session.user);data=updatePMWorklog_(payload.id,payload.patch||{},session.user);}
+      else if(action==='deletePMWorklog'){enforcePMWorklogEdit_(session.user);data=deletePMWorklog_(payload.id,session.user);}
       else if(action==='listUsers') data=readObjects_(SHEETS.users);
       else if(action==='setUserStatus') data=setUserStatus_(payload,session.user);
       else if(action==='setUserRole') data=setUserRole_(payload,session.user);
@@ -99,7 +99,7 @@ function readCachedIdentity_(token){try{const raw=CacheService.getScriptCache().
 function cacheIdentity_(token,identity){try{CacheService.getScriptCache().put(identityCacheKey_(token),JSON.stringify(identity),IDENTITY_CACHE_TTL_SECONDS)}catch(e){}}
 function enforceAllowedDomain_(email){const raw=PropertiesService.getScriptProperties().getProperty('ALLOWED_DOMAINS')||'';const domains=raw.split(/[;,]/).map(x=>x.trim().toLowerCase()).filter(Boolean);if(!domains.length)return;const domain=String(email).split('@')[1]||'';if(domains.indexOf(domain.toLowerCase())<0)throw new Error('This account domain is not allowed');}
 
-function bootstrapSession_(identity){const session=getSession_(identity);if(String(session.user?.status||'').toLowerCase()==='approved')session.workspace=getAllData_();return session;}
+function bootstrapSession_(identity){const session=getSession_(identity);if(String(session.user?.status||'').toLowerCase()==='approved'){session.workspace=getAllData_();if(canViewPMWorklog_(session.user))session.workspace.pmWorklog=listPMWorklog_(session.user);}return session;}
 function getSession_(identity){const user=findUserByEmail_(identity.email);if(!user)return {identity:identity,user:{email:identity.email,displayName:identity.name,status:'Unregistered',role:'',store:''},permissions:{}};const refreshed=touchUserLogin_(identity,user)||user;return {identity:identity,user:refreshed,permissions:permissionsForRole_(refreshed.role)};}
 function requireApprovedSession_(identity){const user=findUserByEmail_(identity.email);if(!user)throw new Error('Access has not been requested');if(String(user.status||'').toLowerCase()!=='approved')throw new Error('Access is not approved');const refreshed=touchUserLogin_(identity,user)||user;return {user:refreshed,permissions:permissionsForRole_(refreshed.role)};}
 function findUserByEmail_(email){return readObjects_(SHEETS.users).find(u=>String(u.email||'').trim().toLowerCase()===String(email||'').trim().toLowerCase())||null;}
@@ -113,9 +113,9 @@ function touchUserLogin_(identity,user){
   return normalizeObject_(objectFromRow_(headers,values[idx]));
 }
 function permissionsForRole_(role){const row=readObjects_(SHEETS.rolePermissions).find(r=>String(r.role)===String(role)&&truthy_(r.active));if(!row)return {};const out={};Object.keys(row).forEach(k=>{if(k!=='role'&&k!=='label'&&k!=='active')out[k]=truthy_(row[k])});return out;}
-function enforceActionPermission_(action,p){const required={createRequest:'manageRequests',updateRequest:'manageRequests',updateProject:'manageProjects',createTask:'manageProjects',updateTask:'manageProjects',deleteTask:'manageProjects',listPMWorklog:'manageProjects',createPMWorklog:'manageProjects',updatePMWorklog:'manageProjects',deletePMWorklog:'manageProjects',listUsers:'manageUsers',setUserStatus:'approveUsers',setUserRole:'approveUsers',createNotification:'manageUsers'}[action];if(required&&!p[required])throw new Error('Your role is not authorized for this action');}
+function enforceActionPermission_(action,p){const required={createRequest:'manageRequests',updateRequest:'manageRequests',updateProject:'manageProjects',createTask:'manageProjects',updateTask:'manageProjects',deleteTask:'manageProjects',listUsers:'manageUsers',setUserStatus:'approveUsers',setUserRole:'approveUsers',createNotification:'manageUsers'}[action];if(required&&!p[required])throw new Error('Your role is not authorized for this action');}
 
-function isOperationalCacheSheet_(sheetName){return [SHEETS.requests,SHEETS.projects,SHEETS.tasks,SHEETS.vendors,SHEETS.systems,SHEETS.sops,SHEETS.decisions,SHEETS.improvements,SHEETS.activity].indexOf(sheetName)>=0;}
+function isOperationalCacheSheet_(sheetName){return [SHEETS.requests,SHEETS.projects,SHEETS.tasks,SHEETS.vendors,SHEETS.systems,SHEETS.sops,SHEETS.decisions,SHEETS.improvements,SHEETS.activity,SHEETS.pmWorklog].indexOf(sheetName)>=0;}
 function readObjects_(sheetName){
   const cache=CacheService.getScriptCache(),key='sheet:'+sheetName+':v1';
   if(isOperationalCacheSheet_(sheetName)){try{const raw=cache.get(key);if(raw)return JSON.parse(raw)}catch(e){}}
