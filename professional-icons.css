@@ -1,0 +1,46 @@
+/* Professional icon system — visual only. */
+.hub-icon{width:18px;height:18px;display:block;flex:0 0 auto;color:currentColor;pointer-events:none}
+.nav-icon{display:grid;place-items:center;flex:0 0 20px}.nav-icon .nav-svg{width:17px;height:17px;opacity:.94}
+.nav-btn.active .nav-svg{color:#e1c094}.nav-btn:hover .nav-svg{color:#f6ead8}
+.sidebar-toggle .hub-icon{width:20px;height:20px;color:var(--green)}
+.search-icon{display:grid;place-items:center;top:0!important;height:100%;font-size:0!important}.search-icon .hub-icon{width:19px;height:19px}
+.icon-btn .hub-icon,.auth-signout .hub-icon{width:17px;height:17px}
+#ibNotificationBtn{position:relative}
+#ibNotificationBtn .hub-icon{margin:auto}
+#ibAccessRequestBtn,#ibInstallBtn,.auth-signout{display:inline-flex;align-items:center;gap:7px}
+
+/* Quick routes: icon -> copy -> directional affordance. */
+.hub-quick-link{justify-content:flex-start!important}
+.hub-quick-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;background:#f0ece3;color:var(--green);border:1px solid #e7dfd3}
+.hub-quick-icon .hub-icon{width:17px;height:17px}
+.hub-quick-link>span:not(.hub-quick-icon){flex:1;min-width:0}
+.hub-quick-link>b{margin-left:auto}
+.hub-quick-link:hover .hub-quick-icon{background:#e8e1d5}
+
+/* All tools: small restrained icon, not a decorative tile wall. */
+.hub-link{display:grid!important;grid-template-columns:32px minmax(0,1fr);align-items:center;column-gap:10px}
+.hub-link-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:#f1ede5;color:#426159}
+.hub-link-icon .hub-icon{width:16px;height:16px}
+.hub-link-copy{min-width:0;display:block!important}
+.hub-link-copy strong,.hub-link-copy span{display:block}
+.hub-link:hover .hub-link-icon{background:#e8e2d7;color:var(--green)}
+
+/* Section titles use icons only where they improve scanning. */
+.hub-section-head h2{display:flex;align-items:center;gap:9px}
+.hub-section-head .section-svg{width:19px;height:19px;color:#6a746f}
+.hub-three-col .eyebrow{display:flex;align-items:center;gap:6px}
+.hub-three-col .eyebrow-svg{width:13px;height:13px;color:#727a75}
+
+/* Mobile sidebar actions. */
+#hubMobileTools [data-hub-proxy]{display:flex!important;align-items:center;gap:9px!important}
+#hubMobileTools [data-hub-proxy] .hub-icon{width:16px;height:16px;opacity:.88}
+#hubMobileTools [data-hub-proxy] span{min-width:0}
+
+@media(max-width:700px){
+  .hub-quick-icon{width:30px;height:30px;border-radius:8px}.hub-quick-icon .hub-icon{width:15px;height:15px}
+  .hub-quick-link{gap:8px!important}.hub-quick-link>b{display:none}
+  .hub-link{grid-template-columns:28px minmax(0,1fr)!important;column-gap:8px!important}
+  .hub-link-icon{width:28px;height:28px;border-radius:7px}.hub-link-icon .hub-icon{width:14px;height:14px}
+  .hub-section-head .section-svg{width:17px;height:17px}
+  .sidebar-toggle .hub-icon{width:19px;height:19px}
+}
