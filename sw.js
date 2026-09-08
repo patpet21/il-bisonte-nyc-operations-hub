@@ -1,4 +1,4 @@
-const CACHE='ib-ops-v0103';
+const CACHE='ib-ops-v0104';
 const SHELL=['/','/index.html','/styles.css','/notifications.css','/access-modal.css','/ui-enhancements.css','/layout-v04.css','/pass-vault.css','/auth.css','/roadmap.css','/project-workspace.css','/operations-control.css','/pm-worklog.css','/mobile-v010.css','/intuitive-layout.css','/config.js','/auth.js','/signup.js','/data-provider.js','/emazzanti-managed-it.js','/access-provider.js','/app.js','/role-bootstrap.js','/notifications.js','/ui-enhancements.js','/pass-vault.js','/roadmap-phase-workspace-v2.js','/roadmap.js','/project-workspace.js','/operations-control.js','/pm-worklog.js','/intuitive-layout.js','/manifest.webmanifest','/icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).catch(()=>{}));self.skipWaiting();});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
