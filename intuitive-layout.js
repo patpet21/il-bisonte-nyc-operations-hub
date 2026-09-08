@@ -3,8 +3,37 @@
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>[...r.querySelectorAll(s)];
   const safe=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const MOBILE=()=>window.matchMedia('(max-width: 900px)').matches;
 
+  document.addEventListener('DOMContentLoaded',ensureNavigationShell);
   document.addEventListener('DOMContentLoaded',()=>waitForCore().then(init).catch(console.error));
+
+  function ensureNavigationShell(){
+    const topbar=q('.topbar'),search=q('.search-wrap'),app=q('#app');
+    if(!topbar||!search||!app)return;
+    let btn=q('#sidebarToggle');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id='sidebarToggle';btn.className='sidebar-toggle';btn.type='button';
+      btn.setAttribute('aria-label','Open navigation');btn.setAttribute('aria-expanded','false');btn.innerHTML='<span aria-hidden="true">☰</span>';
+      topbar.insertBefore(btn,search);
+    }
+    let screen=q('#sidebarScreen');
+    if(!screen){screen=document.createElement('div');screen.className='sidebar-screen';screen.id='sidebarScreen';document.body.appendChild(screen)}
+    if(btn.dataset.hubBound==='1')return;
+    btn.dataset.hubBound='1';
+    const close=()=>{app.classList.remove('sidebar-open');screen.classList.remove('visible');btn.setAttribute('aria-expanded','false')};
+    btn.onclick=()=>{
+      if(MOBILE()){
+        const open=app.classList.toggle('sidebar-open');screen.classList.toggle('visible',open);btn.setAttribute('aria-expanded',String(open));
+      }else{
+        const collapsed=app.classList.toggle('sidebar-collapsed');localStorage.setItem('ib_sidebar_collapsed',collapsed?'1':'0');btn.setAttribute('aria-expanded',String(!collapsed));
+      }
+    };
+    screen.onclick=close;
+    document.addEventListener('click',e=>{if(MOBILE()&&e.target.closest?.('.nav-btn'))close()});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MOBILE())close()});
+  }
 
   function waitForCore(){
     return new Promise((resolve,reject)=>{let n=0;const t=setInterval(()=>{
@@ -15,7 +44,9 @@
   }
 
   function init(){
+    ensureNavigationShell();
     renameWorkNavigation();
+    installMobileSidebarTools();
     installDashboard();
     observeWorklogWording();
     renderNav();
@@ -28,6 +59,24 @@
         if(item[0]==='pmworklog')item[2]='Peter Work Tracking';
       });
     });
+  }
+
+  function prettyRole(role){return ({store_manager:'Store Manager',project_manager:'Project Manager',management:'Management',it_admin:'IT Admin',read_only:'Read Only'})[role]||role||'User'}
+
+  function installMobileSidebarTools(){
+    const sidebar=q('.sidebar');if(!sidebar||q('#hubMobileTools'))return;
+    const tools=document.createElement('div');tools.id='hubMobileTools';tools.className='hub-mobile-tools';
+    const user=window.IB_CURRENT_USER||window.IBAuth?.current?.()?.user||{};
+    const role=user.role||App.role||'project_manager';
+    tools.innerHTML=`<div class="hub-mobile-account"><span>ACCOUNT</span><strong>${safe(user.displayName||prettyRole(role))}</strong><small>${safe(prettyRole(role))}</small></div>
+      ${window.IB_CONFIG?.auth?.mode==='demo'?`<label class="hub-mobile-role">View as<select id="hubMobileRole"></select></label>`:''}
+      <button type="button" data-hub-proxy="#ibAccessRequestBtn">Request access</button>
+      <button type="button" data-hub-proxy="#ibInstallBtn">Install app</button>
+      <button type="button" data-hub-proxy="#authSignOutBtn">Sign out</button>`;
+    const foot=q('.sidebar-foot',sidebar);sidebar.insertBefore(tools,foot||null);
+    const mobileRole=q('#hubMobileRole',tools),sourceRole=q('#roleSelect');
+    if(mobileRole&&sourceRole){mobileRole.innerHTML=sourceRole.innerHTML;mobileRole.value=sourceRole.value;mobileRole.onchange=()=>{sourceRole.value=mobileRole.value;sourceRole.dispatchEvent(new Event('change',{bubbles:true}));q('#app')?.classList.remove('sidebar-open');q('#sidebarScreen')?.classList.remove('visible')}}
+    qa('[data-hub-proxy]',tools).forEach(b=>b.onclick=()=>{const target=q(b.dataset.hubProxy);if(target)target.click();else if(typeof toast==='function')toast('This tool is still loading.');q('#app')?.classList.remove('sidebar-open');q('#sidebarScreen')?.classList.remove('visible')});
   }
 
   function installDashboard(){
@@ -43,7 +92,7 @@
       const requiredDecisions=decisions.filter(x=>String(x.status||'').toLowerCase()==='required');
       const openImprovements=improvements.filter(x=>x.status!=='Completed');
       const role=App.role==='it_admin'?'IT & Operations Overview':'Operations Overview';
-      const subtitle='Everything that matters is visible here. Open a section only when you need the full detail or an edit action.';
+      const subtitle='Everything important is here. Use the quick routes first, then open a section when you need full detail or edit controls.';
 
       const priorities=[
         ...openRequests.filter(x=>['Urgent','High'].includes(x.priority)).map(x=>({title:x.title,sub:x.nextAction||x.category,meta:`${x.priority} · ${x.owner||'Unassigned'}`,tone:x.priority,page:'requests'})),
@@ -55,6 +104,13 @@
       }
 
       root.innerHTML=pageHead(role,subtitle,'IL BISONTE NEW YORK')+`<div class="hub-overview">
+        <nav class="hub-quickbar" aria-label="Quick routes">
+          ${quickLink('Store status','Health & service status','store_health')}
+          ${quickLink('Issues','Open requests & problems','requests')}
+          ${quickLink('Projects','Current work & next steps','projects')}
+          ${quickLink('Peter work','Hours, activity & billing','pmworklog')}
+        </nav>
+
         <div class="hub-summary-strip">
           ${summary(activeProjects.length,'Active projects','Project work currently moving')}
           ${summary(openRequests.length,'Open issues & requests','Items still needing action')}
@@ -100,7 +156,7 @@
         </section>
 
         <section class="hub-section">
-          ${sectionHead('Workspace','Every capability is still here; this is simply the fastest route to the detailed area you need.')}
+          ${sectionHead('All tools','Every capability remains available here.')}
           <div class="hub-links">
             ${hubLink('Store Health','Current store service status','store_health')}
             ${hubLink('Purchases & Visits','Hardware, invoices and onsite work','purchases_visits')}
@@ -122,6 +178,7 @@
     };
   }
 
+  function quickLink(title,sub,page){return `<button class="hub-quick-link" data-hub-go="${safe(page)}"><span><strong>${safe(title)}</strong><small>${safe(sub)}</small></span><b aria-hidden="true">→</b></button>`}
   function summary(value,label,detail){return `<div class="hub-summary-item"><span>${safe(label)}</span><strong>${safe(value)}</strong><small>${safe(detail)}</small></div>`}
   function sectionHead(title,sub='',action='',page=''){return `<div class="hub-section-head"><div><h2>${safe(title)}</h2>${sub?`<p>${safe(sub)}</p>`:''}</div>${action&&page?`<button class="hub-section-action" data-hub-go="${safe(page)}">${safe(action)} →</button>`:''}</div>`}
   function hubRow(x){const tone=String(x.tone||'').toLowerCase().replace(/\s+/g,'-');return `<li class="hub-row" data-hub-go="${safe(x.page||'')}" ${x.projectId?`data-project-id="${safe(x.projectId)}"`:''}><div class="hub-row-main"><div class="hub-row-title">${safe(x.title)}</div><div class="hub-row-sub">${safe(x.sub||'')}</div></div><div class="hub-row-meta"><span class="hub-priority"><i class="hub-priority-dot ${safe(tone)}"></i>${safe(x.meta||'')}</span></div></li>`}
@@ -132,7 +189,6 @@
       if(e.target.closest?.('[data-project-id]')&&e.currentTarget.dataset.projectId)return;
       const page=e.currentTarget.dataset.hubGo;if(!page)return;App.page=page;render();
     }));
-    /* Existing project modal wiring sees data-project-id rows; no extra edit logic is added here. */
   }
 
   function observeWorklogWording(){
