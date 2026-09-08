@@ -42,7 +42,8 @@ function i18nCacheKey_(source,target,text){
 
 function i18nTranslateProtected_(text,source,target){
   const protectedValues=[];
-  const protect=value=>{const token='[[IBKEEP'+String(protectedValues.length).padStart(3,'0')+']]';protectedValues.push(String(value));return token;};
+  const tokenFor=index=>'ZQXIBKEEP'+String(index).padStart(3,'0')+'ZQX';
+  const protect=value=>{const token=tokenFor(protectedValues.length);protectedValues.push(String(value));return token;};
   let masked=String(text);
   masked=masked.replace(/https?:\/\/[^\s<>()]+/gi,protect);
   masked=masked.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,protect);
@@ -56,10 +57,7 @@ function i18nTranslateProtected_(text,source,target){
   });
   let translated;
   try{translated=LanguageApp.translate(masked,source,target)}catch(e){translated=text;}
-  protectedValues.forEach((value,index)=>{
-    const token='[[IBKEEP'+String(index).padStart(3,'0')+']]';
-    translated=String(translated).split(token).join(value);
-  });
+  protectedValues.forEach((value,index)=>{translated=String(translated).split(tokenFor(index)).join(value);});
   return String(translated||text);
 }
 
