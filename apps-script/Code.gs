@@ -27,6 +27,7 @@ function doPost(e){
       const session=requireApprovedSession_(identity);
       enforceActionPermission_(action,session.permissions);
       if(action==='getAll') data=getAllData_();
+      else if(action==='translateBatch') data=translateBatch_(payload,session.user);
       else if(action==='createRequest') data=createRequest_(payload,session.user);
       else if(action==='updateRequest') data=updateRequest_(payload.id,payload.patch||{},session.user);
       else if(action==='updateProject') data=updateProject_(payload.id,payload.patch||{},session.user);
