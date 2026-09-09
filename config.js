@@ -4,7 +4,7 @@ window.IB_CONFIG = {
   environment: "PRODUCTION",
   storeName: "SoHo / Bleecker Street",
   dataMode: "apps_script",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwvzB0rtQuPqkETvOcPeYfHZBjyLdN68Ri4yljwgi1BVmgvtfPDRUV5ga9Hio_p3NXo/exec",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwR4XhycqRuo0uUn2PoNRannOpttZJH7UXqY2Mnf-_IIPswsdyGzy6XStjG7jQ4v1gV/exec",
   auth: {
     mode: "hybrid",
     provider: "google_firebase",
