@@ -1,0 +1,15 @@
+/*
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  X-Content-Type-Options: nosniff
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/runtime-stability.js
+  Cache-Control: no-cache
+
+/dashboard-primary.js
+  Cache-Control: no-cache
