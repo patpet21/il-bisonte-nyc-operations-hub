@@ -1,0 +1,42 @@
+/* Action-first PM dashboard layer. Keeps the data model untouched and only changes presentation. */
+.hub-now-first .hub-upcoming{background:#f3f7f4;border-color:#d7e4dc}
+.hub-now-first .hub-upcoming .hub-section-head{background:#edf4ef;border-bottom-color:#d7e4dc}
+.hub-now-first .hub-latest{background:#fbfbf8}
+.hub-now-first .hub-latest .hub-section-head{background:#f8f8f4}
+.hub-now-first .hub-upcoming .hub-row-title{color:#173f36}
+.hub-now-first .hub-upcoming .hub-priority-dot{background:#2f7057}
+.hub-now-first .hub-latest .hub-priority-dot{background:#89918c}
+
+@media(max-width:700px){
+  /* The phone home screen should answer: what's next, what needs me, what changed? */
+  .hub-now-first{gap:9px!important}
+  .hub-now-first .hub-upcoming{order:1}
+  .hub-now-first .hub-attention{order:2}
+  .hub-now-first .hub-latest{order:3}
+  .hub-now-first .hub-quickbar{order:4}
+  .hub-now-first .hub-summary-strip{order:5;display:none!important}
+  .hub-now-first .hub-two-col{order:6}
+  .hub-now-first>.hub-section:not(.hub-upcoming):not(.hub-attention):not(.hub-latest){order:7}
+
+  .hub-now-first .hub-section-head{padding:10px 11px 8px!important}
+  .hub-now-first .hub-section-head h2{font-size:20px!important}
+  .hub-now-first .hub-section-action{font-size:9px!important}
+  .hub-now-first .hub-section-body{padding:0 11px!important}
+  .hub-now-first .hub-row{padding:10px 0!important;gap:7px!important}
+  .hub-now-first .hub-row-title{font-size:12px!important;white-space:normal!important;line-height:1.25!important}
+  .hub-now-first .hub-row-sub{font-size:9.5px!important;line-height:1.35!important;white-space:normal!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .hub-now-first .hub-row-meta{font-size:9px!important;max-width:96px!important;align-self:flex-start;padding-top:2px}
+
+  .hub-now-first .hub-upcoming .hub-row:first-child{padding-top:11px!important}
+  .hub-now-first .hub-upcoming .hub-row-title{font-size:13px!important}
+  .hub-now-first .hub-upcoming .hub-row-sub{-webkit-line-clamp:3}
+
+  /* Secondary navigation remains available, but no longer competes with current work. */
+  .hub-now-first .hub-quickbar{margin-top:1px}
+  .hub-now-first .hub-quick-link{min-height:56px!important;padding:8px 10px!important}
+  .hub-now-first .hub-quick-link small{display:none!important}
+
+  /* Lower-level registers stay accessible without dominating the first viewport. */
+  .hub-now-first .hub-two-col .hub-section-head p,
+  .hub-now-first>.hub-section:not(.hub-upcoming):not(.hub-attention):not(.hub-latest) .hub-section-head p{display:none!important}
+}
