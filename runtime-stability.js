@@ -51,12 +51,23 @@
       note.id='ibBackendWarning';
       note.className='auth-inline-error';
       note.textContent=status===404
-        ?'The Operations data service is currently unavailable (404). The Apps Script web app deployment needs to be restored or redeployed.'
+        ?'The Operations data service returned a temporary 404. Retrying with a fresh Apps Script request…'
         :'The Operations data service is temporarily unavailable. Please try again.';
       host.prepend(note);
     };
     setTimeout(render,0);
     setTimeout(render,250);
+  }
+
+  function freshEndpointUrl(endpoint){
+    try{
+      const u=new URL(endpoint,location.href);
+      u.searchParams.set('__ibcb',`${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+      return u.toString();
+    }catch(e){
+      const joiner=endpoint.includes('?')?'&':'?';
+      return `${endpoint}${joiner}__ibcb=${Date.now()}`;
+    }
   }
 
   function monitorBackend(){
@@ -66,12 +77,18 @@
     const nativeFetch=window.fetch.bind(window);
     window.fetch=async function(input,init){
       const url=typeof input==='string'?input:(input&&input.url)||'';
+      const isBackend=url===endpoint;
+      const requestInput=isBackend?freshEndpointUrl(endpoint):input;
+      const requestInit=isBackend?{...(init||{}),cache:'no-store',redirect:'follow'}:init;
       try{
-        const response=await nativeFetch(input,init);
-        if(url===endpoint&&!response.ok)showBackendWarning(response.status);
+        let response=await nativeFetch(requestInput,requestInit);
+        if(isBackend&&response.status===404){
+          showBackendWarning(404);
+          response=await nativeFetch(freshEndpointUrl(endpoint),{...(init||{}),cache:'no-store',redirect:'follow'});
+        }
         return response;
       }catch(err){
-        if(url===endpoint)showBackendWarning(0);
+        if(isBackend)showBackendWarning(0);
         throw err;
       }
     };
