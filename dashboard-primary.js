@@ -1,24 +1,15 @@
-/* Primary PM dashboard renderer.
-   Installed synchronously so the legacy dashboard can never flash before the new UI layer initializes. */
+/* Primary scan-first PM / IT overview. */
 (function(){
   if(typeof App==='undefined'||typeof renderPMDashboard!=='function')return;
-  if(window.__IB_PRIMARY_DASHBOARD_INSTALLED)return;
-  window.__IB_PRIMARY_DASHBOARD_INSTALLED=true;
+  if(window.__IB_PRIMARY_DASHBOARD_V2_INSTALLED)return;
+  window.__IB_PRIMARY_DASHBOARD_V2_INSTALLED=true;
 
   const safe=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const CLOSED=new Set(['completed','closed','resolved','cancelled','canceled']);
 
-  function quickLink(title,sub,page){return `<button class="hub-quick-link" data-hub-go="${safe(page)}"><span><strong>${safe(title)}</strong><small>${safe(sub)}</small></span><b aria-hidden="true">→</b></button>`}
-  function summary(value,label,detail){return `<div class="hub-summary-item"><span>${safe(label)}</span><strong>${safe(value)}</strong><small>${safe(detail)}</small></div>`}
-  function sectionHead(title,sub='',action='',page=''){return `<div class="hub-section-head"><div><h2>${safe(title)}</h2>${sub?`<p>${safe(sub)}</p>`:''}</div>${action&&page?`<button class="hub-section-action" data-hub-go="${safe(page)}">${safe(action)} →</button>`:''}</div>`}
-  function hubRow(x){const tone=String(x.tone||'').toLowerCase().replace(/\s+/g,'-');return `<li class="hub-row" data-hub-go="${safe(x.page||'')}" ${x.projectId?`data-project-id="${safe(x.projectId)}"`:''}><div class="hub-row-main"><div class="hub-row-title">${safe(x.title)}</div><div class="hub-row-sub">${safe(x.sub||'')}</div></div><div class="hub-row-meta"><span class="hub-priority"><i class="hub-priority-dot ${safe(tone)}"></i>${safe(x.meta||'')}</span></div></li>`}
-  function hubLink(title,sub,page){return `<button class="hub-link" data-hub-go="${safe(page)}"><strong>${safe(title)}</strong><span>${safe(sub)}</span></button>`}
-  function bindOverview(root){
-    [...root.querySelectorAll('[data-hub-go]')].forEach(el=>el.addEventListener('click',e=>{
-      if(e.target.closest?.('[data-project-id]')&&e.currentTarget.dataset.projectId)return;
-      const page=e.currentTarget.dataset.hubGo;if(!page)return;App.page=page;render();
-    }));
-  }
+  const slug=v=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  const closed=x=>CLOSED.has(String(x?.status||'').toLowerCase());
+  const num=v=>{const n=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?n:0};
 
   function dateOnly(v){
     const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -28,180 +19,190 @@
   function todayOnly(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
   function daysFromToday(v){const d=dateOnly(v);if(!d)return Number.POSITIVE_INFINITY;return Math.round((d-todayOnly())/86400000)}
   function dueLabel(v){
-    const d=dateOnly(v);if(!d)return 'Date not set';
-    const diff=daysFromToday(v);
-    if(diff===0)return 'Today';
-    if(diff===1)return 'Tomorrow';
-    return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+    const d=dateOnly(v);if(!d)return 'No date';
+    const n=daysFromToday(v);if(n===0)return'Today';if(n===1)return'Tomorrow';if(n<0)return`${Math.abs(n)}d overdue`;
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
   }
-  function timeFromText(v){const m=String(v||'').match(/\b(1[0-2]|0?[1-9]):([0-5]\d)\s*(AM|PM)\b/i);return m?`${m[1]}:${m[2]} ${m[3].toUpperCase()}`:''}
   function activityDate(a){
-    const raw=a.timestamp||a.date||a.when||a.at||'';
+    const raw=a.timestamp||a.date||a.when||a.at||a.createdAt||'';
     if(!raw)return 0;
     const normalized=String(raw).match(/^\d{4}-\d{2}-\d{2} /)?String(raw).replace(' ','T'):String(raw);
-    const t=new Date(normalized).getTime();
-    return Number.isFinite(t)?t:0;
+    const t=new Date(normalized).getTime();return Number.isFinite(t)?t:0;
   }
   function activityLabel(a){
     const t=activityDate(a);if(!t)return a.date||a.timestamp||a.when||a.at||'';
-    const d=new Date(t),now=new Date();
-    const same=d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate();
-    if(same)return `Today · ${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`;
+    const d=new Date(t),n=new Date();
+    const same=d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();
+    if(same)return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
   }
 
-  function buildUpcoming(tasks){
-    const open=tasks.filter(t=>!CLOSED.has(String(t.status||'').toLowerCase())&&daysFromToday(t.due)>=0&&daysFromToday(t.due)<=7).sort((a,b)=>daysFromToday(a.due)-daysFromToday(b.due));
-    const rows=[];
-    const consumed=new Set();
-    const onsiteByDate=new Map();
+  function kpi(icon,label,value,detail,page){
+    return `<button class="hub-v2-kpi" data-page="${safe(page)}"><span class="hub-v2-kpi-icon">${icon}</span><span><span class="hub-v2-kpi-label">${safe(label)}</span><strong>${safe(value)}</strong><small>${safe(detail)}</small></span><span class="hub-v2-kpi-arrow">›</span></button>`;
+  }
+  function pill(text,tone){return `<span class="hub-v2-pill ${safe(slug(tone||text))}">${safe(text)}</span>`}
+  function miniRow(item){
+    return `<div class="hub-v2-minirow" data-page="${safe(item.page||'')}"><div><strong>${safe(item.title)}</strong><small>${safe(item.sub||'')}</small></div>${pill(item.badge||item.meta||'Open',item.tone||item.badge||item.meta)}</div>`;
+  }
+  function sideRow(item){
+    return `<li class="hub-v2-side-row" data-page="${safe(item.page||'')}"><div><strong>${safe(item.title)}</strong><small>${safe(item.sub||'')}</small></div><span class="hub-v2-side-meta">${safe(item.meta||'')}</span></li>`;
+  }
+  function quick(icon,title,sub,action,page){
+    const attrs=action?`data-action="${safe(action)}"`:`data-page="${safe(page||'')}"`;
+    return `<button ${attrs}><span class="hub-v2-quick-icon">${icon}</span><span><strong>${safe(title)}</strong><small>${safe(sub)}</small></span></button>`;
+  }
+  function tool(title,sub,page){return `<button class="hub-v2-tool" data-page="${safe(page)}"><strong>${safe(title)}</strong><small>${safe(sub)}</small></button>`}
 
-    open.forEach(t=>{
-      const text=`${t.status||''} ${t.notes||''} ${t.owner||''}`.toLowerCase();
-      if(!text.includes('onsite'))return;
-      const key=t.due||'';
-      if(!onsiteByDate.has(key))onsiteByDate.set(key,[]);
-      onsiteByDate.get(key).push(t);
-    });
+  function projectTable(rows){
+    if(!rows.length)return'<div class="hub-v2-empty">No active projects.</div>';
+    return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Project</th><th>Status</th><th>Progress</th><th>Owner</th><th>Target</th></tr></thead><tbody>${rows.map(p=>{
+      const progress=Math.max(0,Math.min(100,num(p.progress)));
+      return `<tr data-page="projects"><td><strong>${safe(p.name)}</strong><small>${safe(p.nextAction||p.scope||p.id)}</small></td><td>${pill(p.status||'Open',p.status)}</td><td><div class="hub-v2-progress"><span><i style="width:${progress}%"></i></span><b>${progress}%</b></div></td><td>${safe(p.owner||'—')}</td><td>${safe(dueLabel(p.due))}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+  function requestTable(rows){
+    if(!rows.length)return'<div class="hub-v2-empty">No open requests.</div>';
+    return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Request</th><th>Priority</th><th>Status</th><th>Owner</th></tr></thead><tbody>${rows.map(r=>`<tr data-page="requests"><td><strong>${safe(r.title)}</strong><small>${safe(r.id||r.category||'')}</small></td><td>${pill(r.priority||'Normal',r.priority)}</td><td>${pill(r.status||'Open',r.status)}</td><td>${safe(r.owner||'—')}</td></tr>`).join('')}</tbody></table></div>`;
+  }
 
-    [...onsiteByDate.entries()].sort((a,b)=>daysFromToday(a[0])-daysFromToday(b[0])).forEach(([due,group])=>{
-      if(group.length<2)return;
-      group.forEach(t=>consumed.add(t.id));
-      const joined=group.map(t=>t.notes||'').join(' ');
-      const time=timeFromText(joined);
-      const vendor=group.some(t=>/emazzanti/i.test(`${t.owner||''} ${t.notes||''}`))?'eMazzanti onsite':'Onsite work';
-      rows.push({
-        title:vendor,
-        sub:group.map(t=>t.title).join(' · '),
-        meta:`${dueLabel(due)}${time?` · ${time}`:''}`,
-        tone:'High',
-        page:'projects'
-      });
-    });
-
-    open.filter(t=>!consumed.has(t.id)).forEach(t=>{
-      rows.push({
-        title:t.title,
-        sub:t.notes||t.owner||'Scheduled work',
-        meta:dueLabel(t.due),
-        tone:t.priority||t.status,
-        page:'projects'
-      });
-    });
-
-    return rows.slice(0,5);
+  function bind(root){
+    root.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{
+      const page=el.dataset.page;if(!page)return;App.page=page;render();
+    }));
+    root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>{
+      const a=el.dataset.action;
+      if(a==='new-request'&&typeof openRequestModal==='function')return openRequestModal('request');
+      if(a==='log-work'){App.page='pmworklog';return render();}
+      if(a==='retail'){App.page='retail_systems';return render();}
+      if(a==='pass'){App.page='pass';return render();}
+    }));
   }
 
   const legacyPMDashboard=renderPMDashboard;
   renderPMDashboard=function(root){
     if(!['project_manager','it_admin'].includes(App.role))return legacyPMDashboard(root);
 
-    const data=App.data||{};
-    const projects=data.projects||[],requests=data.requests||[],tasks=data.tasks||[],vendors=data.vendors||[],systems=data.systems||[],activity=data.activity||[],improvements=data.improvements||[],decisions=data.decisions||[];
-    const activeProjects=projects.filter(x=>!CLOSED.has(String(x.status||'').toLowerCase()));
-    const openRequests=requests.filter(x=>!CLOSED.has(String(x.status||'').toLowerCase()));
-    const vendorActions=vendors.filter(x=>String(x.nextAction||'').trim());
-    const requiredDecisions=decisions.filter(x=>String(x.status||'').toLowerCase().includes('required'));
-    const openImprovements=improvements.filter(x=>String(x.status||'').toLowerCase()!=='completed');
-    const role=App.role==='it_admin'?'IT & Operations Overview':'Operations Overview';
-    const subtitle='What is coming up, what needs action, and what changed recently.';
-
-    const upcoming=buildUpcoming(tasks);
-    const recentActivity=[...activity].sort((a,b)=>activityDate(b)-activityDate(a));
-
-    const priorities=[
-      ...openRequests.filter(x=>['Urgent','High'].includes(x.priority)).map(x=>({title:x.title,sub:x.nextAction||x.category,meta:`${x.priority} · ${x.owner||'Unassigned'}`,tone:x.priority,page:'requests'})),
-      ...tasks.filter(t=>!CLOSED.has(String(t.status||'').toLowerCase())&&daysFromToday(t.due)<0&&['Urgent','High'].includes(t.priority)).map(t=>({title:t.title,sub:t.notes||t.owner,meta:`Overdue · ${t.owner||'Unassigned'}`,tone:'Urgent',page:'projects'})),
-      ...activeProjects.filter(x=>['Urgent','High'].includes(x.priority)).map(x=>({title:x.name,sub:x.nextAction||x.scope,meta:`${x.status} · ${x.owner||'Unassigned'}`,tone:x.priority,page:'projects'}))
+    const d=App.data||{};
+    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[];
+    const activeProjects=projects.filter(x=>!closed(x));
+    const openRequests=requests.filter(x=>!closed(x));
+    const urgentRequests=openRequests.filter(x=>['urgent','high','critical'].includes(String(x.priority||'').toLowerCase()));
+    const overdueHighTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)<0&&['urgent','high','critical'].includes(String(t.priority||'').toLowerCase()));
+    const urgentItems=[
+      ...urgentRequests.map(x=>({title:x.title,sub:x.nextAction||x.category||x.owner,badge:x.priority||'High',tone:x.priority,page:'requests'})),
+      ...overdueHighTasks.map(x=>({title:x.title,sub:x.notes||x.owner,badge:'Overdue',tone:'overdue',page:'projects'}))
     ];
-    const dedupPriorities=[];
-    const seen=new Set();
-    priorities.forEach(p=>{const k=`${p.title}|${p.sub}`;if(seen.has(k))return;seen.add(k);dedupPriorities.push(p)});
-    if(!dedupPriorities.length){
-      openRequests.slice(0,3).forEach(x=>dedupPriorities.push({title:x.title,sub:x.nextAction||x.category,meta:`${x.status} · ${x.owner||'Unassigned'}`,tone:x.priority,page:'requests'}));
-    }
 
-    root.innerHTML=pageHead(role,subtitle,'IL BISONTE NEW YORK')+`<div class="hub-overview hub-now-first">
-      <section class="hub-section hub-upcoming">
-        ${sectionHead('Upcoming','The next scheduled work and appointments.','Open projects','projects')}
-        <div class="hub-section-body">${upcoming.length?`<ul class="hub-list">${upcoming.map(hubRow).join('')}</ul>`:'<div class="hub-empty">No scheduled work in the next 7 days.</div>'}</div>
-      </section>
+    const todayTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)===0);
+    const upcomingTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)>0&&daysFromToday(t.due)<=7).sort((a,b)=>daysFromToday(a.due)-daysFromToday(b.due));
+    const todayItems=(todayTasks.length?todayTasks:upcomingTasks).slice(0,4).map(t=>({
+      title:t.title,sub:t.notes||t.owner||'Scheduled work',badge:todayTasks.length?'Today':dueLabel(t.due),tone:'today',page:'projects'
+    }));
 
-      <section class="hub-section hub-attention">
-        ${sectionHead('Needs attention','Decisions, follow-ups and overdue high-priority work.','View all issues','requests')}
-        <div class="hub-section-body">${dedupPriorities.length?`<ul class="hub-list">${dedupPriorities.slice(0,5).map(hubRow).join('')}</ul>`:'<div class="hub-empty">Nothing currently needs special attention.</div>'}</div>
-      </section>
+    const waitingRequests=openRequests.filter(r=>/pending|waiting|vendor/i.test(String(r.status||'')));
+    const vendorActions=vendors.filter(v=>String(v.nextAction||'').trim());
+    const waitingItems=[
+      ...waitingRequests.map(r=>({title:r.title,sub:r.nextAction||r.owner||r.category,badge:'Waiting',tone:'waiting',page:'requests'})),
+      ...vendorActions.map(v=>({title:v.name,sub:v.nextAction||v.service,badge:v.status||'Waiting',tone:'waiting',page:'vendors'}))
+    ];
+    const dedup=[];const seen=new Set();
+    waitingItems.forEach(x=>{const k=x.title+'|'+x.sub;if(seen.has(k))return;seen.add(k);dedup.push(x)});
 
-      <section class="hub-section hub-latest">
-        ${sectionHead('Latest updates','The most recent operational changes and confirmations.','Open activity','activity')}
-        <div class="hub-section-body">${recentActivity.length?`<ul class="hub-list">${recentActivity.slice(0,5).map(a=>hubRow({title:a.action||a.title||a.description||a.text||'Activity',sub:a.details||a.detail||a.description||a.notes||a.text||'',meta:activityLabel(a),tone:'',page:'activity'})).join('')}</ul>`:'<div class="hub-empty">No recent activity.</div>'}</div>
-      </section>
+    const recent=[...activity].sort((a,b)=>activityDate(b)-activityDate(a)).slice(0,5).map(a=>({
+      title:a.action||a.title||a.text||a.description||'Activity',
+      sub:a.details||a.detail||a.description||a.notes||a.text||a.by||'',
+      meta:activityLabel(a),page:'activity'
+    }));
 
-      <nav class="hub-quickbar" aria-label="Quick routes">
-        ${quickLink('Store status','Health & service status','store_health')}
-        ${quickLink('Issues','Open requests & problems','requests')}
-        ${quickLink('Projects','Current work & next steps','projects')}
-        ${quickLink('Peter work','Hours, activity & billing','pmworklog')}
+    const greeting=new Date().getHours()<12?'Good morning':new Date().getHours()<18?'Good afternoon':'Good evening';
+    const todayText=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+    const title=App.role==='it_admin'?'IT & Operations Overview':'Operations Overview';
+
+    root.innerHTML=pageHead(title,'A clear control center for what needs action now, what is moving, and what is waiting.','IL BISONTE NEW YORK')+
+    `<div class="hub-v2">
+      <div class="hub-v2-top">
+        <div class="hub-v2-greeting"><strong>${safe(todayText)}</strong><br>${safe(greeting)}.</div>
+        <div class="hub-v2-actions">
+          <button class="hub-v2-action primary" data-action="new-request">＋ New Request</button>
+          <button class="hub-v2-action" data-action="log-work">◷ Log Work</button>
+          <button class="hub-v2-action" data-action="retail">▣ Retail Systems</button>
+        </div>
+      </div>
+
+      <div class="hub-v2-kpis">
+        ${kpi('▤','Open Requests',openRequests.length,'Items still needing action','requests')}
+        ${kpi('□','Active Projects',activeProjects.length,'Projects currently moving','projects')}
+        ${kpi('!','Urgent Items',urgentItems.length,'High priority or overdue','requests')}
+        ${kpi('◉','Vendor Follow-ups',vendorActions.length,'External actions still open','vendors')}
+      </div>
+
+      <nav class="hub-v2-tabs" aria-label="Overview sections">
+        <button class="hub-v2-tab active">Overview</button>
+        <button class="hub-v2-tab" data-page="projects">Projects</button>
+        <button class="hub-v2-tab" data-page="requests">Requests</button>
+        <button class="hub-v2-tab" data-page="vendors">Vendors</button>
+        <button class="hub-v2-tab" data-page="systems">Tools & Systems</button>
       </nav>
 
-      <div class="hub-summary-strip">
-        ${summary(activeProjects.length,'Active projects','Project work currently moving')}
-        ${summary(openRequests.length,'Open issues & requests','Items still needing action')}
-        ${summary(vendorActions.length,'Vendor follow-ups','External actions still open')}
-        ${summary(activity.length,'Activity records','Operational history available')}
-      </div>
-
-      <div class="hub-two-col">
-        <section class="hub-section">
-          ${sectionHead('Projects','Current work, status and next step without opening the full project workspace.','Open projects','projects')}
-          <div class="hub-section-body">${activeProjects.length?`<ul class="hub-list">${activeProjects.slice(0,6).map(p=>hubRow({title:p.name,sub:p.nextAction||p.scope,meta:`${p.status} · ${p.owner||'Unassigned'}`,tone:p.priority,page:'projects',projectId:p.id})).join('')}</ul>`:'<div class="hub-empty">No active projects.</div>'}</div>
-        </section>
-
-        <section class="hub-section">
-          ${sectionHead('Issues & Requests','What is open, who owns it and what happens next.','Open register','requests')}
-          <div class="hub-section-body">${openRequests.length?`<ul class="hub-list">${openRequests.slice(0,6).map(r=>hubRow({title:r.title,sub:r.nextAction||r.category,meta:`${r.status} · ${r.owner||'Unassigned'}`,tone:r.priority,page:'requests'})).join('')}</ul>`:'<div class="hub-empty">No open issues or requests.</div>'}</div>
-        </section>
-      </div>
-
-      <section class="hub-section">
-        ${sectionHead('Store, IT & vendors','A compact operating picture. Details remain in their dedicated workspaces.')}
-        <div class="hub-section-body">
-          <div class="hub-three-col">
-            <div>
-              <div class="eyebrow" style="margin-top:16px">SYSTEMS</div>
-              <ul class="hub-list">${systems.slice(0,4).map(s=>hubRow({title:s.name,sub:`${s.vendor||'Internal'} · ${s.owner||'Owner not set'}`,meta:s.status||'—',tone:s.status,page:'systems'})).join('')||'<li class="hub-empty">No systems recorded.</li>'}</ul>
+      <div class="hub-v2-grid">
+        <div class="hub-v2-left">
+          <section class="hub-v2-panel">
+            <div class="hub-v2-panel-head"><div><h2>Today / Needs Attention</h2><p>Only the items that deserve attention now.</p></div><button class="hub-v2-link" data-page="requests">View all →</button></div>
+            <div class="hub-v2-attention">
+              <div class="hub-v2-attn-col urgent"><div class="hub-v2-attn-title">● Urgent (${urgentItems.length})</div>${urgentItems.slice(0,4).map(miniRow).join('')||'<div class="hub-v2-empty">No urgent items.</div>'}</div>
+              <div class="hub-v2-attn-col today"><div class="hub-v2-attn-title">◷ Today / Next</div>${todayItems.map(miniRow).join('')||'<div class="hub-v2-empty">Nothing scheduled in the next 7 days.</div>'}</div>
+              <div class="hub-v2-attn-col waiting"><div class="hub-v2-attn-title">⌛ Waiting on Others (${dedup.length})</div>${dedup.slice(0,4).map(miniRow).join('')||'<div class="hub-v2-empty">No external blockers.</div>'}</div>
             </div>
-            <div>
-              <div class="eyebrow" style="margin-top:16px">VENDOR COORDINATION</div>
-              <ul class="hub-list">${vendorActions.slice(0,4).map(v=>hubRow({title:v.name,sub:v.nextAction||v.service,meta:v.status||'—',tone:v.status,page:'vendors'})).join('')||'<li class="hub-empty">No vendor follow-up currently open.</li>'}</ul>
-            </div>
-            <div>
-              <div class="eyebrow" style="margin-top:16px">RECENT ACTIVITY</div>
-              <ul class="hub-list">${recentActivity.slice(0,4).map(a=>hubRow({title:a.action||a.title||a.description||a.text||'Activity',sub:a.details||a.detail||a.description||a.notes||a.text||'',meta:activityLabel(a),tone:'',page:'activity'})).join('')||'<li class="hub-empty">No recent activity.</li>'}</ul>
-            </div>
+          </section>
+
+          <div class="hub-v2-two">
+            <section class="hub-v2-panel">
+              <div class="hub-v2-panel-head"><div><h3>Active Projects</h3><p>Current initiatives and the next step.</p></div><button class="hub-v2-link" data-page="projects">View all (${activeProjects.length}) →</button></div>
+              ${projectTable(activeProjects.slice(0,5))}
+            </section>
+            <section class="hub-v2-panel">
+              <div class="hub-v2-panel-head"><div><h3>Open Requests</h3><p>Latest issues and requests still open.</p></div><button class="hub-v2-link" data-page="requests">View all (${openRequests.length}) →</button></div>
+              ${requestTable(openRequests.slice(0,5))}
+            </section>
           </div>
         </div>
-      </section>
 
-      <section class="hub-section">
-        ${sectionHead('All tools','Every capability remains available here.')}
-        <div class="hub-links">
-          ${hubLink('Store Health','Current store service status','store_health')}
-          ${hubLink('Purchases & Visits','Hardware, invoices and onsite work','purchases_visits')}
-          ${hubLink('Systems','Infrastructure and application register','systems')}
-          ${hubLink('Pass & Access','Credentials and access workspace','pass')}
-          ${hubLink('Peter Work Tracking','Time, activities, billing and records','pmworklog')}
-          ${hubLink('Roadmap','Phases, dependencies and next steps','roadmap')}
-          ${hubLink('SOP Library','Store procedures and repeatable actions','sops')}
-          ${hubLink('Process Improvement',`${openImprovements.length} open improvement items`,'improvements')}
-          ${hubLink('Decisions',`${requiredDecisions.length} currently require a decision`,'decisions')}
-          ${hubLink('Vendors',`${vendorActions.length} follow-ups currently open`,'vendors')}
-          ${hubLink('Activity Log','Full history and audit trail','activity')}
-          ${hubLink('Projects','Open complete project portfolio','projects')}
+        <aside class="hub-v2-right">
+          <section class="hub-v2-panel">
+            <div class="hub-v2-panel-head"><div><h3>Quick Actions</h3><p>Common tasks, one click away.</p></div></div>
+            <div class="hub-v2-quick">
+              ${quick('＋','New Request','Submit a store or IT request','new-request')}
+              ${quick('◷','Log Work','Track hours and onsite work','log-work')}
+              ${quick('▣','Retail Systems','Retail Pro, Stealth and POS support','retail')}
+              ${quick('◈','Pass & Access','Open access records','pass')}
+            </div>
+          </section>
+
+          <section class="hub-v2-panel">
+            <div class="hub-v2-panel-head"><div><h3>Vendor Follow-ups</h3><p>Items waiting on vendor action.</p></div><button class="hub-v2-link" data-page="vendors">View all →</button></div>
+            <ul class="hub-v2-side-list">${vendorActions.slice(0,5).map(v=>sideRow({title:v.name,sub:v.nextAction||v.service,meta:v.status||'Open',page:'vendors'})).join('')||'<li class="hub-v2-empty">No vendor follow-ups.</li>'}</ul>
+          </section>
+
+          <section class="hub-v2-panel">
+            <div class="hub-v2-panel-head"><div><h3>Recent Activity</h3><p>Latest changes across operations.</p></div><button class="hub-v2-link" data-page="activity">View all →</button></div>
+            <ul class="hub-v2-side-list">${recent.map(sideRow).join('')||'<li class="hub-v2-empty">No recent activity.</li>'}</ul>
+          </section>
+        </aside>
+      </div>
+
+      <section class="hub-v2-panel">
+        <div class="hub-v2-panel-head"><div><h3>Quick Tools</h3><p>Only the tools you are most likely to need from the overview.</p></div></div>
+        <div class="hub-v2-tools">
+          ${tool('Retail Systems','Retail Pro / Stealth / POS support','retail_systems')}
+          ${tool('Store Health','Connectivity and service status','store_health')}
+          ${tool('Peter Work','Hours and billing register','pmworklog')}
+          ${tool('Pass & Access','Account access references','pass')}
+          ${tool('Roadmap','Phases and next steps','roadmap')}
+          ${tool('SOP Library','Store procedures','sops')}
         </div>
       </section>
     </div>`;
 
-    bindOverview(root);
+    bind(root);
   };
 })();
