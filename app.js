@@ -1,9 +1,9 @@
 const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const App={role:'project_manager',page:'dashboard',data:null,
   nav:{
-    store_manager:[['dashboard','⌂','Home'],['requests','☷','Requests'],['vendors','◉','Vendors'],['sops','▤','Procedures']],
-    project_manager:[['dashboard','▦','PM Control Center'],['projects','□','Projects'],['requests','△','Issues & Requests'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','SOP Library'],['improvements','✦','Process Improvement'],['activity','≋','Activity Log']],
-    management:[['dashboard','⌂','Executive Dashboard'],['projects','□','Projects'],['requests','△','Critical Issues'],['decisions','!','Decisions'],['activity','≋','Recent Activity']]
+    store_manager:[['dashboard','⌂','Overview'],['requests','☷','Requests'],['vendors','◉','Vendors'],['sops','▤','Procedures']],
+    project_manager:[['dashboard','⌂','Overview'],['projects','□','Projects'],['requests','△','Issues & Requests'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','SOP Library'],['improvements','✦','Process Improvement'],['activity','≋','Activity Log']],
+    management:[['dashboard','⌂','Overview'],['projects','□','Projects'],['requests','△','Critical Issues'],['decisions','!','Decisions'],['activity','≋','Recent Activity']]
   }
 };
 
