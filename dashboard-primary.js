@@ -66,41 +66,30 @@
     return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Request</th><th>Priority</th><th>Status</th><th>Owner</th></tr></thead><tbody>${rows.map(r=>`<tr data-request-id="${safe(r.id)}" title="Open and edit request"><td><strong>${safe(r.title)}</strong><small>${safe(r.id||r.category||'')}</small></td><td>${pill(r.priority||'Normal',r.priority)}</td><td>${pill(r.status||'Open',r.status)}</td><td>${safe(r.owner||'—')}</td></tr>`).join('')}</tbody></table></div>`;
   }
   function localDateKey(offset=0){
-    const d=new Date();d.setDate(d.getDate()+offset);
+    const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+offset);
     return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
   }
-  function workTotals(rows){
-    return rows.reduce((a,r)=>{a.hours+=num(r.hours);a.amount+=num(r.amount);return a;},{hours:0,amount:0});
+  function workItemCard(t){
+    const project=(App.data?.projects||[]).find(p=>p.id===t.projectId);
+    return `<button class="hub-daily-task" data-task-id="${safe(t.id)}"><span><strong>${safe(t.title)}</strong><small>${safe(project?.name||t.projectId||'General')} · ${safe(t.owner||'Unassigned')}</small></span>${pill(t.status||'Open',t.status)}</button>`;
   }
-  function money(v){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(num(v));}
-  function workDayCard(label,date,rows){
-    const totals=workTotals(rows);
-    const entries=rows.filter(r=>r.category!=='On-site Presence Fee');
-    const feeRows=rows.filter(r=>r.category==='On-site Presence Fee');
-    return `<section class="hub-work-day">
-      <div class="hub-work-day-head"><div><span>${safe(label)}</span><strong>${safe(date)}</strong></div><div class="hub-work-total"><b>${totals.hours.toFixed(2)} h</b><b>${money(totals.amount)}</b></div></div>
-      <div class="hub-work-entries">
-        ${entries.length?entries.map(r=>`<button class="hub-work-entry" data-work-id="${safe(r.entryId)}"><span><strong>${safe(r.activity)}</strong><small>${safe(r.workMode||'')} · ${safe(r.startTime||'')}${r.endTime?'–'+safe(r.endTime):''}</small></span><b>${num(r.hours)?num(r.hours).toFixed(2)+' h':'—'} · ${money(r.amount)}</b></button>`).join(''):'<div class="hub-v2-empty">No work logged.</div>'}
-        ${feeRows.map(r=>`<button class="hub-work-entry fee" data-work-id="${safe(r.entryId)}"><span><strong>${safe(r.activity)}</strong><small>Automatic on-site fee</small></span><b>${money(r.amount)}</b></button>`).join('')}
-      </div>
-    </section>`;
+  function dailyWorkCard(label,date,rows,emptyText){
+    return `<section class="hub-work-day"><div class="hub-work-day-head"><div><span>${safe(label)}</span><strong>${safe(date)}</strong></div><b>${rows.length}</b></div><div class="hub-work-entries">${rows.length?rows.map(workItemCard).join(''):`<div class="hub-v2-empty">${safe(emptyText)}</div>`}</div></section>`;
   }
-
 
   function bind(root){
     root.querySelectorAll('[data-request-id]').forEach(el=>el.addEventListener('click',e=>{
       e.stopPropagation();window.IBRequestEditor?.open?.(el.dataset.requestId);
     }));
-    root.querySelectorAll('[data-work-id]').forEach(el=>el.addEventListener('click',e=>{
-      e.stopPropagation();window.IBPMWorklog?.openEditorById?.(el.dataset.workId);
-    }));
+    root.querySelectorAll('[data-task-id]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();window.IBWorkBoard?.editById?.(el.dataset.taskId);}));
     root.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{
       const page=el.dataset.page;if(!page)return;App.page=page;render();
     }));
     root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>{
       const a=el.dataset.action;
       if(a==='new-request'&&typeof openRequestModal==='function')return openRequestModal('request');
-      if(a==='log-work')return window.IBPMWorklog?.openNew?.()||(App.page='pmworklog',render());
+      if(a==='new-work')return window.IBWorkBoard?.newItem?.()||(App.page='work',render());
+      if(a==='log-work'){App.page='pmworklog';return render();}
       if(a==='retail'){App.page='retail_systems';return render();}
       if(a==='pass'){App.page='pass';return render();}
     }));
@@ -111,10 +100,11 @@
     if(!['project_manager','it_admin'].includes(App.role))return legacyPMDashboard(root);
 
     const d=App.data||{};
-    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[],pmWorklog=d.pmWorklog||[];
+    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[];
     const todayKey=localDateKey(0),yesterdayKey=localDateKey(-1);
-    const todayWork=pmWorklog.filter(r=>String(r.workDate||'').slice(0,10)===todayKey);
-    const yesterdayWork=pmWorklog.filter(r=>String(r.workDate||'').slice(0,10)===yesterdayKey);
+    const todayWork=tasks.filter(t=>!closed(t)&&String(t.due||'').slice(0,10)===todayKey);
+    const yesterdayDone=tasks.filter(t=>closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
+    const yesterdayOpen=tasks.filter(t=>!closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
     const activeProjects=projects.filter(x=>!closed(x));
     const openRequests=requests.filter(x=>!closed(x));
     const urgentRequests=openRequests.filter(x=>['urgent','high','critical'].includes(String(x.priority||'').toLowerCase()));
@@ -169,6 +159,7 @@
 
       <nav class="hub-v2-tabs" aria-label="Overview sections">
         <button class="hub-v2-tab active">Overview</button>
+        <button class="hub-v2-tab" data-page="work">Work</button>
         <button class="hub-v2-tab" data-page="projects">Projects</button>
         <button class="hub-v2-tab" data-page="requests">Requests</button>
         <button class="hub-v2-tab" data-page="vendors">Vendors</button>
@@ -176,10 +167,11 @@
       </nav>
 
       <section class="hub-v2-panel hub-work-panel">
-        <div class="hub-v2-panel-head"><div><h2>Work Activity</h2><p>Actual work logged from Peter Work & Time — click any item to edit it.</p></div><div class="hub-v2-head-actions"><button class="hub-v2-link" data-action="log-work">+ Log work</button><button class="hub-v2-link" data-page="pmworklog">Open full worklog →</button></div></div>
+        <div class="hub-v2-panel-head"><div><h2>Daily Work</h2><p>The actual operational work to do — not hours or billing.</p></div><div class="hub-v2-head-actions"><button class="hub-v2-link" data-action="new-work">+ New work item</button><button class="hub-v2-link" data-page="work">Open Work board →</button></div></div>
         <div class="hub-work-grid">
-          ${workDayCard('TODAY',todayKey,todayWork)}
-          ${workDayCard('YESTERDAY',yesterdayKey,yesterdayWork)}
+          ${dailyWorkCard('TODAY',todayKey,todayWork,'Nothing scheduled for today.')}
+          ${dailyWorkCard('YESTERDAY — COMPLETED',yesterdayKey,yesterdayDone,'No completed work recorded for yesterday.')}
+          ${yesterdayOpen.length?`<section class="hub-work-day overdue"><div class="hub-work-day-head"><div><span>YESTERDAY — STILL OPEN</span><strong>${safe(yesterdayKey)}</strong></div><b>${yesterdayOpen.length}</b></div><div class="hub-work-entries">${yesterdayOpen.map(workItemCard).join('')}</div></section>`:''}
         </div>
       </section>
 
@@ -211,7 +203,7 @@
             <div class="hub-v2-panel-head"><div><h3>Quick Actions</h3><p>Common tasks, one click away.</p></div></div>
             <div class="hub-v2-quick">
               ${quick('＋','New Request','Submit a store or IT request','new-request')}
-              ${quick('◷','Log Work','Track hours and onsite work','log-work')}
+              ${quick('✓','Work Board','Today, next, waiting and done',null,'work')}
               ${quick('▣','Retail Systems','Retail Pro, Stealth and POS support','retail')}
               ${quick('◈','Pass & Access','Open access records','pass')}
             </div>
