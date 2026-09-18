@@ -1,9 +1,9 @@
 const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const App={role:'project_manager',page:'dashboard',data:null,
   nav:{
-    store_manager:[['dashboard','⌂','Overview'],['requests','☷','Requests'],['vendors','◉','Vendors'],['sops','▤','Procedures']],
-    project_manager:[['dashboard','⌂','Overview'],['projects','□','Projects'],['requests','△','Issues & Requests'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','SOP Library'],['improvements','✦','Process Improvement'],['activity','≋','Activity Log']],
-    management:[['dashboard','⌂','Overview'],['projects','□','Projects'],['requests','△','Critical Issues'],['decisions','!','Decisions'],['activity','≋','Recent Activity']]
+    store_manager:[['dashboard','⌂','Overview'],['work','✓','Work'],['requests','☷','Requests'],['vendors','◉','Vendors'],['sops','▤','Procedures']],
+    project_manager:[['dashboard','⌂','Overview'],['work','✓','Work'],['projects','□','Projects'],['requests','△','Issues & Requests'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','SOP Library'],['improvements','✦','Process Improvement'],['activity','≋','Activity Log']],
+    management:[['dashboard','⌂','Overview'],['work','✓','Work'],['projects','□','Projects'],['requests','△','Critical Issues'],['decisions','!','Decisions'],['activity','≋','Recent Activity']]
   }
 };
 
@@ -19,13 +19,72 @@ async function init(){
 }
 function render(){renderNav();renderPage();}
 function renderNav(){const nav=$('#sidebarNav');nav.innerHTML=App.nav[App.role].map(([id,icon,label])=>`<button class="nav-btn ${App.page===id?'active':''}" data-page="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('');$$('.nav-btn',nav).forEach(b=>b.onclick=()=>{App.page=b.dataset.page;render();});}
-function renderPage(){const root=$('#pageRoot');const page=App.page;if(page==='dashboard')return App.role==='store_manager'?renderStoreDashboard(root):App.role==='management'?renderManagementDashboard(root):renderPMDashboard(root);const map={requests:renderRequests,projects:renderProjects,vendors:renderVendors,systems:renderSystems,sops:renderSops,improvements:renderImprovements,activity:renderActivity,decisions:renderDecisions};(map[page]||renderPMDashboard)(root);}
+function renderPage(){const root=$('#pageRoot');const page=App.page;if(page==='dashboard')return App.role==='store_manager'?renderStoreDashboard(root):App.role==='management'?renderManagementDashboard(root):renderPMDashboard(root);const map={work:renderWork,requests:renderRequests,projects:renderProjects,vendors:renderVendors,systems:renderSystems,sops:renderSops,improvements:renderImprovements,activity:renderActivity,decisions:renderDecisions};(map[page]||renderPMDashboard)(root);}
 function pageHead(title,sub,eyebrow='IL BISONTE NEW YORK'){const back=App.page!=='dashboard'?`<button class="page-back" data-global-page="dashboard">← Overview</button>`:'';return `<div class="page-head"><div>${back}<div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1><p class="page-subtitle">${sub}</p></div><div class="date-card"><strong>${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</strong><br><span class="muted">${window.IB_CONFIG.storeName}</span></div></div>`}
 function stats(){const open=App.data.requests.filter(x=>!['Resolved','Closed'].includes(x.status)).length,active=App.data.projects.filter(x=>!['Completed','Closed'].includes(x.status)).length,pending=App.data.vendors.filter(x=>x.nextAction).length,improve=App.data.improvements.filter(x=>x.status!=='Completed').length;return {open,active,pending,improve};}
 function statCard(v,label,trend='Current operational view'){return `<div class="stat-card"><div class="stat-top"><div><div class="stat-value">${v}</div><div class="stat-label">${label}</div></div><span>›</span></div><div class="trend">${trend}</div></div>`}
 function renderStoreDashboard(root){const s=stats();root.innerHTML=pageHead('Store Manager Workspace','One simple place to report, track, and close store needs.')+`<div class="hero-actions"><button class="action-card cognac" id="reportIssue"><div class="action-title">Report an Issue</div><div class="action-sub">Something is not working? Capture it once and we coordinate the rest.</div></button><button class="action-card green" id="newRequest"><div class="action-title">New Request</div><div class="action-sub">Need something for the store? Submit a structured request.</div></button></div><div class="split"><div class="panel"><div class="panel-head"><h3>Open Issues</h3><button class="btn" data-go="requests">View all</button></div>${requestRows(App.data.requests.filter(x=>!['Resolved','Closed'].includes(x.status)).slice(0,5),false)}</div><div class="panel"><div class="panel-head"><h3>Upcoming / Next Actions</h3></div><ul class="simple-list">${App.data.projects.filter(x=>x.status!=='Completed').slice(0,5).map(p=>`<li class="simple-row"><span class="dot"></span><div class="row-main"><div class="row-title">${esc(p.name)}</div><div class="row-sub">${esc(p.nextAction)}</div></div><div class="row-meta">${fmtDate(p.due)}</div></li>`).join('')}</ul></div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Quick Procedures</h3><button class="btn" data-go="sops">View library</button></div>${sopRows(App.data.sops.slice(0,4))}</div><div class="panel"><div class="panel-head"><h3>Vendor Contacts</h3><button class="btn" data-go="vendors">View all</button></div>${vendorRows(App.data.vendors.slice(0,4))}</div></div><div class="footer-note">Store Manager view — intentionally simplified</div>`;$('#reportIssue').onclick=()=>openRequestModal('issue');$('#newRequest').onclick=()=>openRequestModal('request');wireGo();}
 function renderPMDashboard(root){const s=stats();root.innerHTML=pageHead('PM Control Center','Coordinate projects. Resolve issues. Align vendors. Improve continuously.')+`<div class="grid grid-4">${statCard(s.active,'Active Projects')}${statCard(s.open,'Open Issues & Requests')}${statCard(s.pending,'Vendor Actions')}${statCard(s.improve,'Improvement Candidates')}</div><div class="split" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Projects Kanban</h3><button class="btn" data-go="projects">View all</button></div>${kanban(App.data.projects)}</div><div class="panel"><div class="panel-head"><h3>Risk / Issue View</h3><button class="btn primary" id="pmNewIssue">+ New issue</button></div>${requestRows(App.data.requests.slice(0,6),true)}</div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Vendor Coordination</h3><button class="btn" data-go="vendors">Open register</button></div>${vendorRows(App.data.vendors)}</div><div class="panel"><div class="panel-head"><h3>Operating Workflow</h3></div>${workflow()}</div></div><div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Automation & AI Improvement Backlog</h3><button class="btn" data-go="improvements">View backlog</button></div><div class="grid grid-3">${App.data.improvements.map(i=>`<div class="metric-box"><span class="pill ${cls(i.priority)}">${esc(i.priority)}</span><h4>${esc(i.title)}</h4><div class="muted">${esc(i.type)} · ${esc(i.status)}</div></div>`).join('')}</div></div><div class="footer-note">Project Manager view — governance, coordination, improvement and closeout</div>`;$('#pmNewIssue').onclick=()=>openRequestModal('issue');wireGo();}
 function renderManagementDashboard(root){const s=stats();const critical=App.data.requests.filter(x=>['High','Urgent'].includes(x.priority)&&!['Resolved','Closed'].includes(x.status));root.innerHTML=pageHead('Executive Dashboard','NYC operations at a glance: what is moving, what is blocked, and what needs a decision.')+`<div class="grid grid-4">${statCard(s.open,'Open Issues')}${statCard(s.active,'Active Projects')}${statCard(App.data.decisions.filter(x=>x.status==='Required').length,'Decisions Required')}${statCard('92%','Weekly Status','Prototype readiness indicator')}</div><div class="split" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Requires Attention</h3><button class="btn" data-go="requests">View issues</button></div>${critical.length?critical.map(r=>`<div class="decision-banner"><strong>${esc(r.id)} — ${esc(r.title)}</strong><span>${esc(r.nextAction)} · Owner: ${esc(r.owner)}</span></div>`).join(''):'<div class="empty">No critical issues.</div>'}</div><div class="panel"><div class="panel-head"><h3>Decision Queue</h3><button class="btn" data-go="decisions">View all</button></div>${App.data.decisions.map(d=>`<div class="simple-row"><span class="dot"></span><div class="row-main"><div class="row-title">${esc(d.title)}</div><div class="row-sub">Owner: ${esc(d.owner)}</div></div><span class="pill ${d.status==='Required'?'high':'pending'}">${esc(d.status)}</span></div>`).join('')}</div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Project Portfolio</h3><button class="btn" data-go="projects">View all</button></div>${projectTable(App.data.projects.slice(0,6))}</div><div class="panel"><div class="panel-head"><h3>Recent Activity</h3><button class="btn" data-go="activity">View log</button></div>${activityRows(App.data.activity.slice(0,7))}</div></div><div class="footer-note">Management view — decisions, portfolio status and exceptions only</div>`;wireGo();}
+function taskProjectName(projectId){
+  const p=(App.data.projects||[]).find(x=>x.id===projectId);
+  return p?p.name:(projectId||'General');
+}
+function taskDayKey(offset=0){
+  const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+offset);
+  return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+}
+function taskClosed(t){return ['Completed','Closed','Resolved','Cancelled','Canceled'].includes(String(t.status||''));}
+function workCard(t){
+  return `<article class="work-card" data-work-task="${esc(t.id)}">
+    <div class="work-card-top"><div><span class="work-id">${esc(t.id)}</span><h3>${esc(t.title)}</h3><small>${esc(taskProjectName(t.projectId))}</small></div><span class="pill ${cls(t.priority)}">${esc(t.priority||'Medium')}</span></div>
+    <div class="work-card-meta"><span>${esc(t.owner||'Unassigned')}</span><span class="pill ${cls(t.status)}">${esc(t.status||'Not Started')}</span></div>
+    ${t.notes?`<p>${esc(t.notes)}</p>`:''}
+    <div class="work-card-actions"><button class="btn work-edit" data-id="${esc(t.id)}">Edit</button>${taskClosed(t)?'':`<button class="btn primary work-done" data-id="${esc(t.id)}">Mark done</button>`}</div>
+  </article>`;
+}
+function renderWork(root){
+  const tasks=App.data.tasks||[],today=taskDayKey(0),yesterday=taskDayKey(-1);
+  const todayRows=tasks.filter(t=>!taskClosed(t)&&String(t.due||'').slice(0,10)===today);
+  const nextRows=tasks.filter(t=>!taskClosed(t)&&String(t.due||'').slice(0,10)>today).sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,8);
+  const waiting=tasks.filter(t=>!taskClosed(t)&&/pending|waiting|vendor|blocked/i.test(String(t.status||''))).slice(0,8);
+  const recentDone=tasks.filter(t=>taskClosed(t)&&String(t.due||'').slice(0,10)>=yesterday).sort((a,b)=>String(b.due||'').localeCompare(String(a.due||''))).slice(0,8);
+  root.innerHTML=pageHead('Work','The simple daily operating board: what we do today, what comes next, what is waiting, and what was just completed.')+`
+    <div class="work-page">
+      <div class="work-page-actions"><button class="btn primary" id="addWorkItem">+ New Work Item</button></div>
+      <div class="work-board">
+        <section class="work-column today"><div class="work-col-head"><div><span>TODAY</span><h2>Today’s work</h2></div><b>${todayRows.length}</b></div><div class="work-col-body">${todayRows.map(workCard).join('')||'<div class="work-empty">No work scheduled for today.</div>'}</div></section>
+        <section class="work-column next"><div class="work-col-head"><div><span>NEXT</span><h2>Coming up</h2></div><b>${nextRows.length}</b></div><div class="work-col-body">${nextRows.map(workCard).join('')||'<div class="work-empty">Nothing queued next.</div>'}</div></section>
+        <section class="work-column waiting"><div class="work-col-head"><div><span>WAITING</span><h2>Waiting on others</h2></div><b>${waiting.length}</b></div><div class="work-col-body">${waiting.map(workCard).join('')||'<div class="work-empty">Nothing blocked or waiting.</div>'}</div></section>
+        <section class="work-column done"><div class="work-col-head"><div><span>RECENTLY DONE</span><h2>Yesterday / recent</h2></div><b>${recentDone.length}</b></div><div class="work-col-body">${recentDone.map(workCard).join('')||'<div class="work-empty">No recent completed work.</div>'}</div></section>
+      </div>
+    </div>`;
+  $('#addWorkItem').onclick=()=>openWorkEditor();
+  $$('.work-edit').forEach(b=>b.onclick=e=>{e.stopPropagation();openWorkEditor((App.data.tasks||[]).find(t=>t.id===b.dataset.id));});
+  $$('.work-done').forEach(b=>b.onclick=async e=>{e.stopPropagation();await IBData.updateTask(b.dataset.id,{status:'Completed'});App.data=await IBData.getAll();render();toast(`${b.dataset.id} completed`);});
+}
+function openWorkEditor(row=null){
+  const root=$('#modalRoot'),projects=App.data.projects||[];
+  const r=row||{projectId:'',title:'',owner:'Pietro',status:'Not Started',priority:'Medium',due:taskDayKey(0),notes:''};
+  const option=(v,current)=>`<option value="${esc(v)}" ${String(v)===String(current)?'selected':''}>${esc(v||'General / no project')}</option>`;
+  root.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div><div class="eyebrow">DAILY WORK</div><h2>${row?'Edit Work Item':'New Work Item'}</h2></div><button class="icon-btn" id="closeWorkEdit">×</button></div>
+    <form id="workEditForm"><div class="form-grid">
+      <div class="field full"><label>What needs to be done?</label><input name="title" required value="${esc(r.title||'')}" placeholder="Short action title"></div>
+      <div class="field"><label>Project</label><select name="projectId">${option('',r.projectId)}${projects.map(p=>`<option value="${esc(p.id)}" ${p.id===r.projectId?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Owner</label><input name="owner" value="${esc(r.owner||'')}"></div>
+      <div class="field"><label>Status</label><select name="status">${['Not Started','In Progress','Pending Vendor','Waiting','Blocked','Completed'].map(v=>option(v,r.status)).join('')}</select></div>
+      <div class="field"><label>Priority</label><select name="priority">${['Low','Medium','High','Urgent'].map(v=>option(v,r.priority)).join('')}</select></div>
+      <div class="field"><label>When</label><input name="due" type="date" value="${esc(r.due||taskDayKey(0))}"></div>
+      <div class="field full"><label>Notes / next step</label><textarea name="notes">${esc(r.notes||'')}</textarea></div>
+    </div><div class="modal-actions">${row?'<button type="button" class="btn" id="deleteWorkItem">Delete</button>':''}<button type="button" class="btn" id="cancelWorkEdit">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>
+  </div></div>`;
+  const close=()=>root.innerHTML='';
+  $('#closeWorkEdit').onclick=$('#cancelWorkEdit').onclick=close;
+  if(row)$('#deleteWorkItem').onclick=async()=>{if(!confirm(`Delete ${row.id}?`))return;await IBData.deleteTask(row.id);App.data=await IBData.getAll();close();render();toast(`${row.id} deleted`);};
+  $('#workEditForm').onsubmit=async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(e.target).entries());if(row)await IBData.updateTask(row.id,payload);else await IBData.createTask(payload);App.data=await IBData.getAll();close();render();toast(row?'Work item updated':'Work item created');};
+}
+window.IBWorkBoard={open:()=>{App.page='work';render();},newItem:()=>openWorkEditor()};
+
 function renderRequests(root){
   const all=App.data.requests||[];
   const open=all.filter(x=>!['Resolved','Closed'].includes(x.status));
