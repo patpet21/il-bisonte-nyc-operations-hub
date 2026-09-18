@@ -45,10 +45,10 @@ function workCard(t){
 }
 function renderWork(root){
   const tasks=App.data.tasks||[],today=taskDayKey(0),yesterday=taskDayKey(-1);
-  const todayRows=tasks.filter(t=>!taskClosed(t)&&String(t.due||'').slice(0,10)===today);
+  const todayRows=tasks.filter(t=>String(t.due||'').slice(0,10)===today);
   const nextRows=tasks.filter(t=>!taskClosed(t)&&String(t.due||'').slice(0,10)>today).sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,8);
   const waiting=tasks.filter(t=>!taskClosed(t)&&/pending|waiting|vendor|blocked/i.test(String(t.status||''))).slice(0,8);
-  const recentDone=tasks.filter(t=>taskClosed(t)&&String(t.due||'').slice(0,10)>=yesterday).sort((a,b)=>String(b.due||'').localeCompare(String(a.due||''))).slice(0,8);
+  const recentDone=tasks.filter(t=>String(t.due||'').slice(0,10)===yesterday).slice(0,8);
   root.innerHTML=pageHead('Work','The simple daily operating board: what we do today, what comes next, what is waiting, and what was just completed.')+`
     <div class="work-page">
       <div class="work-page-actions"><button class="btn primary" id="addWorkItem">+ New Work Item</button></div>
@@ -56,7 +56,7 @@ function renderWork(root){
         <section class="work-column today"><div class="work-col-head"><div><span>TODAY</span><h2>Today’s work</h2></div><b>${todayRows.length}</b></div><div class="work-col-body">${todayRows.map(workCard).join('')||'<div class="work-empty">No work scheduled for today.</div>'}</div></section>
         <section class="work-column next"><div class="work-col-head"><div><span>NEXT</span><h2>Coming up</h2></div><b>${nextRows.length}</b></div><div class="work-col-body">${nextRows.map(workCard).join('')||'<div class="work-empty">Nothing queued next.</div>'}</div></section>
         <section class="work-column waiting"><div class="work-col-head"><div><span>WAITING</span><h2>Waiting on others</h2></div><b>${waiting.length}</b></div><div class="work-col-body">${waiting.map(workCard).join('')||'<div class="work-empty">Nothing blocked or waiting.</div>'}</div></section>
-        <section class="work-column done"><div class="work-col-head"><div><span>RECENTLY DONE</span><h2>Yesterday / recent</h2></div><b>${recentDone.length}</b></div><div class="work-col-body">${recentDone.map(workCard).join('')||'<div class="work-empty">No recent completed work.</div>'}</div></section>
+        <section class="work-column done"><div class="work-col-head"><div><span>YESTERDAY</span><h2>Yesterday’s work</h2></div><b>${recentDone.length}</b></div><div class="work-col-body">${recentDone.map(workCard).join('')||'<div class="work-empty">No work recorded for yesterday.</div>'}</div></section>
       </div>
     </div>`;
   $('#addWorkItem').onclick=()=>openWorkEditor();
