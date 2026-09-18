@@ -8,6 +8,7 @@ const App={role:'project_manager',page:'dashboard',data:null,
 };
 
 document.addEventListener('DOMContentLoaded',init);
+document.addEventListener('click',e=>{const target=e.target.closest?.('[data-global-page]');if(!target)return;const page=target.dataset.globalPage;if(!page)return;App.page=page;render();});
 async function init(){
   $('#environmentBadge').textContent=window.IB_CONFIG.environment;
   $('#roleSelect').value=App.role;
@@ -18,13 +19,69 @@ async function init(){
 function render(){renderNav();renderPage();}
 function renderNav(){const nav=$('#sidebarNav');nav.innerHTML=App.nav[App.role].map(([id,icon,label])=>`<button class="nav-btn ${App.page===id?'active':''}" data-page="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('');$$('.nav-btn',nav).forEach(b=>b.onclick=()=>{App.page=b.dataset.page;render();});}
 function renderPage(){const root=$('#pageRoot');const page=App.page;if(page==='dashboard')return App.role==='store_manager'?renderStoreDashboard(root):App.role==='management'?renderManagementDashboard(root):renderPMDashboard(root);const map={requests:renderRequests,projects:renderProjects,vendors:renderVendors,systems:renderSystems,sops:renderSops,improvements:renderImprovements,activity:renderActivity,decisions:renderDecisions};(map[page]||renderPMDashboard)(root);}
-function pageHead(title,sub,eyebrow='IL BISONTE NEW YORK'){return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1><p class="page-subtitle">${sub}</p></div><div class="date-card"><strong>${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</strong><br><span class="muted">${window.IB_CONFIG.storeName}</span></div></div>`}
+function pageHead(title,sub,eyebrow='IL BISONTE NEW YORK'){const back=App.page!=='dashboard'?`<button class="page-back" data-global-page="dashboard">← Overview</button>`:'';return `<div class="page-head"><div>${back}<div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1><p class="page-subtitle">${sub}</p></div><div class="date-card"><strong>${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</strong><br><span class="muted">${window.IB_CONFIG.storeName}</span></div></div>`}
 function stats(){const open=App.data.requests.filter(x=>!['Resolved','Closed'].includes(x.status)).length,active=App.data.projects.filter(x=>!['Completed','Closed'].includes(x.status)).length,pending=App.data.vendors.filter(x=>x.nextAction).length,improve=App.data.improvements.filter(x=>x.status!=='Completed').length;return {open,active,pending,improve};}
 function statCard(v,label,trend='Current operational view'){return `<div class="stat-card"><div class="stat-top"><div><div class="stat-value">${v}</div><div class="stat-label">${label}</div></div><span>›</span></div><div class="trend">${trend}</div></div>`}
 function renderStoreDashboard(root){const s=stats();root.innerHTML=pageHead('Store Manager Workspace','One simple place to report, track, and close store needs.')+`<div class="hero-actions"><button class="action-card cognac" id="reportIssue"><div class="action-title">Report an Issue</div><div class="action-sub">Something is not working? Capture it once and we coordinate the rest.</div></button><button class="action-card green" id="newRequest"><div class="action-title">New Request</div><div class="action-sub">Need something for the store? Submit a structured request.</div></button></div><div class="split"><div class="panel"><div class="panel-head"><h3>Open Issues</h3><button class="btn" data-go="requests">View all</button></div>${requestRows(App.data.requests.filter(x=>!['Resolved','Closed'].includes(x.status)).slice(0,5),false)}</div><div class="panel"><div class="panel-head"><h3>Upcoming / Next Actions</h3></div><ul class="simple-list">${App.data.projects.filter(x=>x.status!=='Completed').slice(0,5).map(p=>`<li class="simple-row"><span class="dot"></span><div class="row-main"><div class="row-title">${esc(p.name)}</div><div class="row-sub">${esc(p.nextAction)}</div></div><div class="row-meta">${fmtDate(p.due)}</div></li>`).join('')}</ul></div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Quick Procedures</h3><button class="btn" data-go="sops">View library</button></div>${sopRows(App.data.sops.slice(0,4))}</div><div class="panel"><div class="panel-head"><h3>Vendor Contacts</h3><button class="btn" data-go="vendors">View all</button></div>${vendorRows(App.data.vendors.slice(0,4))}</div></div><div class="footer-note">Store Manager view — intentionally simplified</div>`;$('#reportIssue').onclick=()=>openRequestModal('issue');$('#newRequest').onclick=()=>openRequestModal('request');wireGo();}
 function renderPMDashboard(root){const s=stats();root.innerHTML=pageHead('PM Control Center','Coordinate projects. Resolve issues. Align vendors. Improve continuously.')+`<div class="grid grid-4">${statCard(s.active,'Active Projects')}${statCard(s.open,'Open Issues & Requests')}${statCard(s.pending,'Vendor Actions')}${statCard(s.improve,'Improvement Candidates')}</div><div class="split" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Projects Kanban</h3><button class="btn" data-go="projects">View all</button></div>${kanban(App.data.projects)}</div><div class="panel"><div class="panel-head"><h3>Risk / Issue View</h3><button class="btn primary" id="pmNewIssue">+ New issue</button></div>${requestRows(App.data.requests.slice(0,6),true)}</div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Vendor Coordination</h3><button class="btn" data-go="vendors">Open register</button></div>${vendorRows(App.data.vendors)}</div><div class="panel"><div class="panel-head"><h3>Operating Workflow</h3></div>${workflow()}</div></div><div class="panel" style="margin-top:16px"><div class="panel-head"><h3>Automation & AI Improvement Backlog</h3><button class="btn" data-go="improvements">View backlog</button></div><div class="grid grid-3">${App.data.improvements.map(i=>`<div class="metric-box"><span class="pill ${cls(i.priority)}">${esc(i.priority)}</span><h4>${esc(i.title)}</h4><div class="muted">${esc(i.type)} · ${esc(i.status)}</div></div>`).join('')}</div></div><div class="footer-note">Project Manager view — governance, coordination, improvement and closeout</div>`;$('#pmNewIssue').onclick=()=>openRequestModal('issue');wireGo();}
 function renderManagementDashboard(root){const s=stats();const critical=App.data.requests.filter(x=>['High','Urgent'].includes(x.priority)&&!['Resolved','Closed'].includes(x.status));root.innerHTML=pageHead('Executive Dashboard','NYC operations at a glance: what is moving, what is blocked, and what needs a decision.')+`<div class="grid grid-4">${statCard(s.open,'Open Issues')}${statCard(s.active,'Active Projects')}${statCard(App.data.decisions.filter(x=>x.status==='Required').length,'Decisions Required')}${statCard('92%','Weekly Status','Prototype readiness indicator')}</div><div class="split" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Requires Attention</h3><button class="btn" data-go="requests">View issues</button></div>${critical.length?critical.map(r=>`<div class="decision-banner"><strong>${esc(r.id)} — ${esc(r.title)}</strong><span>${esc(r.nextAction)} · Owner: ${esc(r.owner)}</span></div>`).join(''):'<div class="empty">No critical issues.</div>'}</div><div class="panel"><div class="panel-head"><h3>Decision Queue</h3><button class="btn" data-go="decisions">View all</button></div>${App.data.decisions.map(d=>`<div class="simple-row"><span class="dot"></span><div class="row-main"><div class="row-title">${esc(d.title)}</div><div class="row-sub">Owner: ${esc(d.owner)}</div></div><span class="pill ${d.status==='Required'?'high':'pending'}">${esc(d.status)}</span></div>`).join('')}</div></div><div class="grid grid-2" style="margin-top:16px"><div class="panel"><div class="panel-head"><h3>Project Portfolio</h3><button class="btn" data-go="projects">View all</button></div>${projectTable(App.data.projects.slice(0,6))}</div><div class="panel"><div class="panel-head"><h3>Recent Activity</h3><button class="btn" data-go="activity">View log</button></div>${activityRows(App.data.activity.slice(0,7))}</div></div><div class="footer-note">Management view — decisions, portfolio status and exceptions only</div>`;wireGo();}
-function renderRequests(root){root.innerHTML=pageHead('Issues & Requests','One register for store needs, problems, owners, next actions and closeout.')+`<div class="panel"><div class="panel-head"><h3>Request Register</h3><div class="toolbar"><button class="btn" id="resetDemo">Reset demo</button><button class="btn primary" id="newRequestBtn">+ New Request</button></div></div>${requestRows(App.data.requests,true)}</div>`;$('#newRequestBtn').onclick=()=>openRequestModal('issue');$('#resetDemo').onclick=async()=>{App.data=await IBData.reset();render();toast('Demo data reset')};}
+function renderRequests(root){
+  const all=App.data.requests||[];
+  const open=all.filter(x=>!['Resolved','Closed'].includes(x.status));
+  const high=open.filter(x=>['High','Urgent','Critical'].includes(x.priority));
+  const waiting=open.filter(x=>/pending|waiting|vendor/i.test(String(x.status||'')));
+  const progress=open.filter(x=>String(x.status||'').toLowerCase()==='in progress');
+  root.innerHTML=pageHead('Issues & Requests','See what needs action, who owns it, and what happens next.')+`
+    <div class="request-page">
+      <div class="request-summary">
+        <button class="request-summary-card active" data-request-filter="all"><span>Open</span><strong>${open.length}</strong><small>All active items</small></button>
+        <button class="request-summary-card" data-request-filter="high"><span>High priority</span><strong>${high.length}</strong><small>Needs attention</small></button>
+        <button class="request-summary-card" data-request-filter="waiting"><span>Waiting</span><strong>${waiting.length}</strong><small>Vendor / external</small></button>
+        <button class="request-summary-card" data-request-filter="progress"><span>In progress</span><strong>${progress.length}</strong><small>Currently moving</small></button>
+      </div>
+
+      <div class="request-toolbar panel">
+        <div>
+          <div class="eyebrow">REQUEST REGISTER</div>
+          <h3>What needs attention?</h3>
+          <p class="muted">Use the filters, then open only the item you need.</p>
+        </div>
+        <div class="toolbar"><button class="btn primary" id="newRequestBtn">+ New Request</button></div>
+      </div>
+
+      <div id="requestCards" class="request-card-grid"></div>
+    </div>`;
+  $('#newRequestBtn').onclick=()=>openRequestModal('issue');
+  let filter='all';
+  const renderCards=()=>{
+    const rows=open.filter(r=>{
+      if(filter==='high')return ['High','Urgent','Critical'].includes(r.priority);
+      if(filter==='waiting')return /pending|waiting|vendor/i.test(String(r.status||''));
+      if(filter==='progress')return String(r.status||'').toLowerCase()==='in progress';
+      return true;
+    });
+    $('#requestCards').innerHTML=requestCards(rows);
+    $('.request-action').forEach(b=>b.onclick=async()=>{await IBData.updateRequest(b.dataset.id,{status:b.dataset.status,nextAction:b.dataset.status==='Resolved'?'Store confirmed resolution':'PM follow-up in progress'});App.data=await IBData.getAll();render();toast(`${b.dataset.id} updated`);});
+  };
+  $('.request-summary-card').forEach(b=>b.onclick=()=>{filter=b.dataset.requestFilter;$('.request-summary-card').forEach(x=>x.classList.toggle('active',x===b));renderCards();});
+  renderCards();
+}
+function requestCards(rows){
+  if(!rows.length)return '<div class="request-empty panel">No requests match this filter.</div>';
+  return rows.map(r=>{
+    const nextStatus=r.status==='New'?'In Progress':r.status==='In Progress'?'Resolved':'In Progress';
+    const actionLabel=r.status==='Resolved'?'Reopen':r.status==='In Progress'?'Resolve':'Start';
+    return `<article class="request-card">
+      <div class="request-card-top">
+        <div><span class="request-id">${esc(r.id)}</span><h3>${esc(r.title)}</h3><div class="request-category">${esc(r.category)}</div></div>
+        <div class="request-badges"><span class="pill ${cls(r.priority)}">${esc(r.priority)}</span><span class="pill ${cls(r.status)}">${esc(r.status)}</span></div>
+      </div>
+      <div class="request-card-meta"><div><span>Owner</span><strong>${esc(r.owner||'Unassigned')}</strong></div><div><span>Requester</span><strong>${esc(r.requester||'—')}</strong></div></div>
+      <div class="request-next"><span>Next action</span><strong>${esc(r.nextAction||'No next action recorded')}</strong></div>
+      <div class="request-card-actions"><button class="btn request-action" data-id="${esc(r.id)}" data-status="${esc(nextStatus)}">${actionLabel}</button></div>
+    </article>`;
+  }).join('');
+}
 function requestRows(rows,actions){if(!rows.length)return '<div class="empty">No records.</div>';return `<div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Request</th><th>Priority</th><th>Owner</th><th>Status</th><th>Next Action</th>${actions?'<th></th>':''}</tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.id)}</td><td><strong>${esc(r.title)}</strong><div class="row-sub">${esc(r.category)}</div></td><td><span class="pill ${cls(r.priority)}">${esc(r.priority)}</span></td><td>${esc(r.owner)}</td><td><span class="pill ${cls(r.status)}">${esc(r.status)}</span></td><td>${esc(r.nextAction||'')}</td>${actions?`<td><button class="btn mini-action" data-id="${r.id}" data-status="${r.status==='New'?'In Progress':r.status==='In Progress'?'Resolved':'In Progress'}">${r.status==='Resolved'?'Reopen':r.status==='In Progress'?'Resolve':'Start'}</button></td>`:''}</tr>`).join('')}</tbody></table></div>`}
 function renderProjects(root){root.innerHTML=pageHead('Projects','Turn operational changes into visible, owned and measurable projects.')+`<div class="panel"><div class="panel-head"><h3>Project Portfolio</h3><span class="muted">${App.data.projects.length} projects</span></div>${kanban(App.data.projects)}</div><div class="panel" style="margin-top:16px">${projectTable(App.data.projects)}</div>`;}
 function projectTable(rows){return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Project</th><th>Scope</th><th>Owner</th><th>Status</th><th>Priority</th><th>Target</th><th>Next Action</th></tr></thead><tbody>${rows.map(p=>`<tr><td><strong>${esc(p.name)}</strong><div class="row-sub">${esc(p.id)}</div></td><td>${esc(p.scope)}</td><td>${esc(p.owner)}</td><td><span class="pill ${cls(p.status)}">${esc(p.status)}</span></td><td><span class="pill ${cls(p.priority)}">${esc(p.priority)}</span></td><td>${fmtDate(p.due)}</td><td>${esc(p.nextAction)}</td></tr>`).join('')}</tbody></table></div>`}
