@@ -79,7 +79,7 @@ function requestCards(rows){
       </div>
       <div class="request-card-meta"><div><span>Owner</span><strong>${esc(r.owner||'Unassigned')}</strong></div><div><span>Requester</span><strong>${esc(r.requester||'—')}</strong></div></div>
       <div class="request-next"><span>Next action</span><strong>${esc(r.nextAction||'No next action recorded')}</strong></div>
-      <div class="request-card-actions"><button class="btn request-action" data-id="${esc(r.id)}" data-status="${esc(nextStatus)}">${actionLabel}</button></div>
+      <div class="request-card-actions"><button class="btn request-edit" data-id="${esc(r.id)}">Edit details</button><button class="btn request-action" data-id="${esc(r.id)}" data-status="${esc(nextStatus)}">${actionLabel}</button></div>
     </article>`;
   }).join('');
 }
@@ -97,6 +97,32 @@ function renderActivity(root){root.innerHTML=pageHead('Activity Log','A traceabl
 function activityRows(rows){return `<ul class="activity-list">${rows.map(a=>`<li class="activity-item"><span class="dot"></span><div class="row-main"><div class="row-title">${esc(a.text)}</div><div class="row-sub">${esc(a.by)}</div></div><div class="row-meta">${esc(a.at)}</div></li>`).join('')}</ul>`}
 function renderDecisions(root){root.innerHTML=pageHead('Decision Queue','Separate decisions from discussion so blockers are visible.')+`<div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Decision</th><th>Owner</th><th>Status</th><th>Due</th></tr></thead><tbody>${App.data.decisions.map(d=>`<tr><td>${esc(d.id)}</td><td><strong>${esc(d.title)}</strong></td><td>${esc(d.owner)}</td><td><span class="pill ${d.status==='Required'?'high':'pending'}">${esc(d.status)}</span></td><td>${fmtDate(d.due)}</td></tr>`).join('')}</tbody></table></div></div>`;}
 function workflow(){const steps=[['1','Request','Capture once'],['2','Assess','Impact & priority'],['3','Assign','Owner & vendor'],['4','Follow-up','Track & unblock'],['5','Verify','Store confirms'],['6','Close','Document outcome']];return `<div class="workflow">${steps.map((s,i)=>`${i?'<div class="workflow-arrow">→</div>':''}<div class="workflow-step"><div class="workflow-circle">${s[0]}</div><span>${s[1]}</span><small>${s[2]}</small></div>`).join('')}</div>`}
+function openRequestEditor(id){
+  const row=(App.data.requests||[]).find(r=>r.id===id);if(!row)return;
+  const root=$('#modalRoot');
+  const opts=(values,current)=>values.map(v=>`<option ${String(v)===String(current)?'selected':''}>${esc(v)}</option>`).join('');
+  root.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div><div class="eyebrow">ISSUE / REQUEST</div><h2>Edit ${esc(row.id)}</h2></div><button class="icon-btn" id="closeRequestEdit">×</button></div>
+    <form id="requestEditForm"><div class="form-grid">
+      <div class="field full"><label>Title</label><input name="title" required value="${esc(row.title||'')}"></div>
+      <div class="field"><label>Category</label><input name="category" value="${esc(row.category||'')}"></div>
+      <div class="field"><label>Priority</label><select name="priority">${opts(['Low','Normal','Medium','High','Urgent'],row.priority)}</select></div>
+      <div class="field"><label>Status</label><select name="status">${opts(['New','Not Started','Planned','Scheduled','In Progress','Pending Vendor','Blocked','Resolved','Closed'],row.status)}</select></div>
+      <div class="field"><label>Owner</label><input name="owner" value="${esc(row.owner||'')}"></div>
+      <div class="field"><label>Requester</label><input name="requester" value="${esc(row.requester||'')}"></div>
+      <div class="field full"><label>Next action</label><textarea name="nextAction">${esc(row.nextAction||'')}</textarea></div>
+      <div class="field full"><label>Description</label><textarea name="description">${esc(row.description||'')}</textarea></div>
+      <div class="field full"><label>Attachment / reference</label><input name="attachmentRef" value="${esc(row.attachmentRef||'')}"></div>
+    </div><div class="modal-actions"><button type="button" class="btn" id="cancelRequestEdit">Cancel</button><button class="btn primary" type="submit">Save changes</button></div></form>
+  </div></div>`;
+  const close=()=>root.innerHTML='';
+  $('#closeRequestEdit').onclick=$('#cancelRequestEdit').onclick=close;
+  $('#requestEditForm').onsubmit=async e=>{
+    e.preventDefault();const fd=new FormData(e.target);const patch=Object.fromEntries(fd.entries());
+    try{await IBData.updateRequest(id,patch);App.data=await IBData.getAll();close();render();toast(`${id} updated`);}catch(err){toast(err.message||String(err));}
+  };
+}
+window.IBRequestEditor={open:openRequestEditor};
+
 function openRequestModal(kind){const root=$('#modalRoot');root.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div><div class="eyebrow">STORE OPERATIONS</div><h2>${kind==='issue'?'Report an Issue':'New Request'}</h2></div><button class="icon-btn" id="closeModal">×</button></div><form id="requestForm"><div class="form-grid"><div class="field"><label>Category</label><select name="category"><option>Store Operations</option><option>Retail / POS</option><option>Network / Connectivity</option><option>Hardware</option><option>Account / Access</option><option>Vendor</option><option>Maintenance</option><option>Other</option></select></div><div class="field"><label>Priority</label><select name="priority"><option>Normal</option><option>High</option><option>Urgent</option></select></div><div class="field full"><label>Title</label><input name="title" required placeholder="Short description of the need" /></div><div class="field full"><label>Description</label><textarea name="description" placeholder="What happened? What is the impact on the store?"></textarea></div><div class="field"><label>Requested by</label><input name="requester" value="Lisa / Store" /></div><div class="field"><label>Attachment reference</label><input name="attachment" placeholder="Drive link or file reference (later automated)" /></div></div><div class="modal-actions"><button type="button" class="btn" id="cancelModal">Cancel</button><button class="btn primary" type="submit">Submit</button></div></form></div></div>`;$('#closeModal').onclick=$('#cancelModal').onclick=()=>root.innerHTML='';$('#requestForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const payload={title:f.get('title'),category:f.get('category'),priority:f.get('priority'),requester:f.get('requester'),description:f.get('description'),attachment:f.get('attachment')};await IBData.createRequest(payload);App.data=await IBData.getAll();root.innerHTML='';render();toast('Request created and logged');};}
 function wireGo(){$$('[data-go]').forEach(b=>b.onclick=()=>{App.page=b.dataset.go;render();});$$('.mini-action').forEach(b=>b.onclick=async()=>{await IBData.updateRequest(b.dataset.id,{status:b.dataset.status,nextAction:b.dataset.status==='Resolved'?'Store confirmed resolution':'PM follow-up in progress'});App.data=await IBData.getAll();render();toast(`${b.dataset.id} updated`);});}
 function cls(v=''){return String(v).toLowerCase().replaceAll(' ','-').replaceAll('/','-')}
