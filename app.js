@@ -83,7 +83,7 @@ function openWorkEditor(row=null){
   if(row)$('#deleteWorkItem').onclick=async()=>{if(!confirm(`Delete ${row.id}?`))return;await IBData.deleteTask(row.id);App.data=await IBData.getAll();close();render();toast(`${row.id} deleted`);};
   $('#workEditForm').onsubmit=async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(e.target).entries());if(row)await IBData.updateTask(row.id,payload);else await IBData.createTask(payload);App.data=await IBData.getAll();close();render();toast(row?'Work item updated':'Work item created');};
 }
-window.IBWorkBoard={open:()=>{App.page='work';render();},newItem:()=>openWorkEditor()};
+window.IBWorkBoard={open:()=>{App.page='work';render();},newItem:()=>openWorkEditor(),editById:(id)=>{const row=(App.data.tasks||[]).find(t=>t.id===id);if(row)openWorkEditor(row);}};
 
 function renderRequests(root){
   const all=App.data.requests||[];
