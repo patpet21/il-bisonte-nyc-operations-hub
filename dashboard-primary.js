@@ -42,7 +42,8 @@
   }
   function pill(text,tone){return `<span class="hub-v2-pill ${safe(slug(tone||text))}">${safe(text)}</span>`}
   function miniRow(item){
-    return `<div class="hub-v2-minirow" data-page="${safe(item.page||'')}"><div><strong>${safe(item.title)}</strong><small>${safe(item.sub||'')}</small></div>${pill(item.badge||item.meta||'Open',item.tone||item.badge||item.meta)}</div>`;
+    const attrs=item.requestId?`data-request-id="${safe(item.requestId)}"`:item.projectId?`data-project-id="${safe(item.projectId)}"`:`data-page="${safe(item.page||'')}"`;
+    return `<div class="hub-v2-minirow" ${attrs}><div><strong>${safe(item.title)}</strong><small>${safe(item.sub||'')}</small></div>${pill(item.badge||item.meta||'Open',item.tone||item.badge||item.meta)}</div>`;
   }
   function sideRow(item){
     return `<li class="hub-v2-side-row" data-page="${safe(item.page||'')}"><div><strong>${safe(item.title)}</strong><small>${safe(item.sub||'')}</small></div><span class="hub-v2-side-meta">${safe(item.meta||'')}</span></li>`;
@@ -57,22 +58,49 @@
     if(!rows.length)return'<div class="hub-v2-empty">No active projects.</div>';
     return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Project</th><th>Status</th><th>Progress</th><th>Owner</th><th>Target</th></tr></thead><tbody>${rows.map(p=>{
       const progress=Math.max(0,Math.min(100,num(p.progress)));
-      return `<tr data-page="projects"><td><strong>${safe(p.name)}</strong><small>${safe(p.nextAction||p.scope||p.id)}</small></td><td>${pill(p.status||'Open',p.status)}</td><td><div class="hub-v2-progress"><span><i style="width:${progress}%"></i></span><b>${progress}%</b></div></td><td>${safe(p.owner||'—')}</td><td>${safe(dueLabel(p.due))}</td></tr>`;
+      return `<tr data-project-id="${safe(p.id)}" title="Open project"><td><strong>${safe(p.name)}</strong><small>${safe(p.nextAction||p.scope||p.id)}</small></td><td>${pill(p.status||'Open',p.status)}</td><td><div class="hub-v2-progress"><span><i style="width:${progress}%"></i></span><b>${progress}%</b></div></td><td>${safe(p.owner||'—')}</td><td>${safe(dueLabel(p.due))}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   }
   function requestTable(rows){
     if(!rows.length)return'<div class="hub-v2-empty">No open requests.</div>';
-    return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Request</th><th>Priority</th><th>Status</th><th>Owner</th></tr></thead><tbody>${rows.map(r=>`<tr data-page="requests"><td><strong>${safe(r.title)}</strong><small>${safe(r.id||r.category||'')}</small></td><td>${pill(r.priority||'Normal',r.priority)}</td><td>${pill(r.status||'Open',r.status)}</td><td>${safe(r.owner||'—')}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap"><table class="hub-v2-table"><thead><tr><th>Request</th><th>Priority</th><th>Status</th><th>Owner</th></tr></thead><tbody>${rows.map(r=>`<tr data-request-id="${safe(r.id)}" title="Open and edit request"><td><strong>${safe(r.title)}</strong><small>${safe(r.id||r.category||'')}</small></td><td>${pill(r.priority||'Normal',r.priority)}</td><td>${pill(r.status||'Open',r.status)}</td><td>${safe(r.owner||'—')}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function localDateKey(offset=0){
+    const d=new Date();d.setDate(d.getDate()+offset);
+    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  }
+  function workTotals(rows){
+    return rows.reduce((a,r)=>{a.hours+=num(r.hours);a.amount+=num(r.amount);return a;},{hours:0,amount:0});
+  }
+  function money(v){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(num(v));}
+  function workDayCard(label,date,rows){
+    const totals=workTotals(rows);
+    const entries=rows.filter(r=>r.category!=='On-site Presence Fee');
+    const feeRows=rows.filter(r=>r.category==='On-site Presence Fee');
+    return `<section class="hub-work-day">
+      <div class="hub-work-day-head"><div><span>${safe(label)}</span><strong>${safe(date)}</strong></div><div class="hub-work-total"><b>${totals.hours.toFixed(2)} h</b><b>${money(totals.amount)}</b></div></div>
+      <div class="hub-work-entries">
+        ${entries.length?entries.map(r=>`<button class="hub-work-entry" data-work-id="${safe(r.entryId)}"><span><strong>${safe(r.activity)}</strong><small>${safe(r.workMode||'')} · ${safe(r.startTime||'')}${r.endTime?'–'+safe(r.endTime):''}</small></span><b>${num(r.hours)?num(r.hours).toFixed(2)+' h':'—'} · ${money(r.amount)}</b></button>`).join(''):'<div class="hub-v2-empty">No work logged.</div>'}
+        ${feeRows.map(r=>`<button class="hub-work-entry fee" data-work-id="${safe(r.entryId)}"><span><strong>${safe(r.activity)}</strong><small>Automatic on-site fee</small></span><b>${money(r.amount)}</b></button>`).join('')}
+      </div>
+    </section>`;
   }
 
+
   function bind(root){
+    root.querySelectorAll('[data-request-id]').forEach(el=>el.addEventListener('click',e=>{
+      e.stopPropagation();window.IBRequestEditor?.open?.(el.dataset.requestId);
+    }));
+    root.querySelectorAll('[data-work-id]').forEach(el=>el.addEventListener('click',e=>{
+      e.stopPropagation();window.IBPMWorklog?.openEditorById?.(el.dataset.workId);
+    }));
     root.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{
       const page=el.dataset.page;if(!page)return;App.page=page;render();
     }));
     root.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>{
       const a=el.dataset.action;
       if(a==='new-request'&&typeof openRequestModal==='function')return openRequestModal('request');
-      if(a==='log-work'){App.page='pmworklog';return render();}
+      if(a==='log-work')return window.IBPMWorklog?.openNew?.()||(App.page='pmworklog',render());
       if(a==='retail'){App.page='retail_systems';return render();}
       if(a==='pass'){App.page='pass';return render();}
     }));
@@ -83,26 +111,29 @@
     if(!['project_manager','it_admin'].includes(App.role))return legacyPMDashboard(root);
 
     const d=App.data||{};
-    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[];
+    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[],pmWorklog=d.pmWorklog||[];
+    const todayKey=localDateKey(0),yesterdayKey=localDateKey(-1);
+    const todayWork=pmWorklog.filter(r=>String(r.workDate||'').slice(0,10)===todayKey);
+    const yesterdayWork=pmWorklog.filter(r=>String(r.workDate||'').slice(0,10)===yesterdayKey);
     const activeProjects=projects.filter(x=>!closed(x));
     const openRequests=requests.filter(x=>!closed(x));
     const urgentRequests=openRequests.filter(x=>['urgent','high','critical'].includes(String(x.priority||'').toLowerCase()));
     const overdueHighTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)<0&&['urgent','high','critical'].includes(String(t.priority||'').toLowerCase()));
     const urgentItems=[
-      ...urgentRequests.map(x=>({title:x.title,sub:x.nextAction||x.category||x.owner,badge:x.priority||'High',tone:x.priority,page:'requests'})),
+      ...urgentRequests.map(x=>({title:x.title,sub:x.nextAction||x.category||x.owner,badge:x.priority||'High',tone:x.priority,requestId:x.id})),
       ...overdueHighTasks.map(x=>({title:x.title,sub:x.notes||x.owner,badge:'Overdue',tone:'overdue',page:'projects'}))
     ];
 
     const todayTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)===0);
     const upcomingTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)>0&&daysFromToday(t.due)<=7).sort((a,b)=>daysFromToday(a.due)-daysFromToday(b.due));
     const todayItems=(todayTasks.length?todayTasks:upcomingTasks).slice(0,4).map(t=>({
-      title:t.title,sub:t.notes||t.owner||'Scheduled work',badge:todayTasks.length?'Today':dueLabel(t.due),tone:'today',page:'projects'
+      title:t.title,sub:t.notes||t.owner||'Scheduled work',badge:todayTasks.length?'Today':dueLabel(t.due),tone:'today',projectId:t.projectId||''
     }));
 
     const waitingRequests=openRequests.filter(r=>/pending|waiting|vendor/i.test(String(r.status||'')));
     const vendorActions=vendors.filter(v=>String(v.nextAction||'').trim());
     const waitingItems=[
-      ...waitingRequests.map(r=>({title:r.title,sub:r.nextAction||r.owner||r.category,badge:'Waiting',tone:'waiting',page:'requests'})),
+      ...waitingRequests.map(r=>({title:r.title,sub:r.nextAction||r.owner||r.category,badge:'Waiting',tone:'waiting',requestId:r.id})),
       ...vendorActions.map(v=>({title:v.name,sub:v.nextAction||v.service,badge:v.status||'Waiting',tone:'waiting',page:'vendors'}))
     ];
     const dedup=[];const seen=new Set();
@@ -143,6 +174,14 @@
         <button class="hub-v2-tab" data-page="vendors">Vendors</button>
         <button class="hub-v2-tab" data-page="systems">Tools & Systems</button>
       </nav>
+
+      <section class="hub-v2-panel hub-work-panel">
+        <div class="hub-v2-panel-head"><div><h2>Work Activity</h2><p>Actual work logged from Peter Work & Time — click any item to edit it.</p></div><div class="hub-v2-head-actions"><button class="hub-v2-link" data-action="log-work">+ Log work</button><button class="hub-v2-link" data-page="pmworklog">Open full worklog →</button></div></div>
+        <div class="hub-work-grid">
+          ${workDayCard('TODAY',todayKey,todayWork)}
+          ${workDayCard('YESTERDAY',yesterdayKey,yesterdayWork)}
+        </div>
+      </section>
 
       <div class="hub-v2-grid">
         <div class="hub-v2-left">
