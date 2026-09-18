@@ -253,5 +253,12 @@
     const baseRenderPage=renderPage;
     renderPage=function(){if(typeof App!=='undefined'&&App.page==='pmworklog')return renderPMWorklog(document.querySelector('#pageRoot'));return baseRenderPage();};
   }
-  window.IBPMWorklog={render:renderPMWorklog,reload:()=>refreshRows(true),canView,canEdit};
+  window.IBPMWorklog={
+    render:renderPMWorklog,
+    reload:()=>refreshRows(true),
+    canView,
+    canEdit,
+    openEditorById:(id)=>{primeRows();const row=rows.find(r=>r.entryId===id);if(row)return openEditor(row);if(typeof toast==='function')toast('Work entry not found.');},
+    openNew:()=>openEditor()
+  };
 })();
