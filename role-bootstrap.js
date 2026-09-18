@@ -2,7 +2,7 @@
   if(typeof App==='undefined')return;
 
   App.nav.it_admin=[
-    ['dashboard','▦','Admin Control Center'],
+    ['dashboard','⌂','Overview'],
     ['roadmap','◆','Roadmap'],
     ['pmworklog','◷','My PM Work'],
     ['projects','□','Projects'],
