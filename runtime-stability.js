@@ -43,32 +43,27 @@
     },10);
   }
 
+  function clearBackendWarning(){
+    try{document.getElementById('ibBackendWarning')?.remove()}catch(e){}
+  }
+
   function showBackendWarning(status){
     const render=()=>{
       const host=document.querySelector('#authRoot .auth-panel');
-      if(!host||document.getElementById('ibBackendWarning'))return;
+      if(!host)return;
+      clearBackendWarning();
       const note=document.createElement('div');
       note.id='ibBackendWarning';
       note.className='auth-inline-error';
       note.textContent=status===404
-        ?'The Operations data service returned a temporary 404. Retrying with a fresh Apps Script request…'
+        ?'The Operations data service is taking longer than expected. Please retry in a moment.'
         :'The Operations data service is temporarily unavailable. Please try again.';
       host.prepend(note);
     };
     setTimeout(render,0);
-    setTimeout(render,250);
   }
 
-  function freshEndpointUrl(endpoint){
-    try{
-      const u=new URL(endpoint,location.href);
-      u.searchParams.set('__ibcb',`${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
-      return u.toString();
-    }catch(e){
-      const joiner=endpoint.includes('?')?'&':'?';
-      return `${endpoint}${joiner}__ibcb=${Date.now()}`;
-    }
-  }
+  function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 
   function monitorBackend(){
     if(typeof window.fetch!=='function')return;
@@ -78,17 +73,23 @@
     window.fetch=async function(input,init){
       const url=typeof input==='string'?input:(input&&input.url)||'';
       const isBackend=url===endpoint;
-      const requestInput=isBackend?freshEndpointUrl(endpoint):input;
-      const requestInit=isBackend?{...(init||{}),cache:'no-store',redirect:'follow'}:init;
+      if(!isBackend)return nativeFetch(input,init);
+
+      const requestInit={...(init||{}),cache:'no-store',redirect:'follow'};
       try{
-        let response=await nativeFetch(requestInput,requestInit);
-        if(isBackend&&response.status===404){
-          showBackendWarning(404);
-          response=await nativeFetch(freshEndpointUrl(endpoint),{...(init||{}),cache:'no-store',redirect:'follow'});
+        let response=await nativeFetch(endpoint,requestInit);
+        if(response.status===404){
+          await wait(450);
+          response=await nativeFetch(endpoint,{...requestInit,cache:'reload'});
         }
+        if(response.ok){
+          clearBackendWarning();
+          return response;
+        }
+        if(response.status===404)showBackendWarning(404);
         return response;
       }catch(err){
-        if(isBackend)showBackendWarning(0);
+        showBackendWarning(0);
         throw err;
       }
     };
