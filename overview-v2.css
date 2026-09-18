@@ -122,3 +122,38 @@
 .hub-v2-table tbody tr[data-project-id],.hub-v2-table tbody tr[data-request-id],.hub-v2-minirow[data-request-id],.hub-v2-minirow[data-project-id]{cursor:pointer}
 .hub-v2-table tbody tr[data-project-id]:hover,.hub-v2-table tbody tr[data-request-id]:hover{background:#eef3f0!important}
 @media(max-width:850px){.hub-work-grid{grid-template-columns:1fr}}
+
+
+/* Simple operational Work board */
+.work-page{display:grid;gap:14px}
+.work-page-actions{display:flex;justify-content:flex-end}
+.work-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
+.work-column{border:1px solid #ded7cb;background:#fffdfa;border-radius:13px;overflow:hidden;min-width:0}
+.work-col-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-bottom:1px solid #e7e1d7;background:#f7f3eb}
+.work-col-head span{display:block;font-size:9px;letter-spacing:.12em;color:#7c817b;font-weight:800}
+.work-col-head h2{font-family:'Libre Caslon Display',serif;font-size:20px;margin:2px 0 0;color:#20302b}
+.work-col-head>b{display:grid;place-items:center;min-width:28px;height:28px;border-radius:999px;background:#e9efec;color:#315e4a;font-size:11px}
+.work-column.today{border-top:3px solid #173f36}.work-column.waiting{border-top:3px solid #b9822f}.work-column.done{border-top:3px solid #60836e}.work-column.next{border-top:3px solid #7b8798}
+.work-col-body{display:grid}
+.work-card{padding:13px;border-bottom:1px solid #eee8df;background:#fff}
+.work-card:last-child{border-bottom:0}.work-card:hover{background:#faf8f3}
+.work-card-top{display:flex;justify-content:space-between;gap:10px}
+.work-id{font-size:8px;letter-spacing:.08em;color:#8a8f89;font-weight:800}
+.work-card h3{font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.3;margin:4px 0 2px;color:#202a26}
+.work-card small{font-size:9px;color:var(--muted)}
+.work-card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:9px;color:#626861}
+.work-card p{font-size:10px;line-height:1.45;color:#555d58;margin:10px 0 0}
+.work-card-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:11px}
+.work-card-actions .btn{padding:6px 9px;font-size:10px}
+.work-empty{padding:20px 14px;color:var(--muted);font-size:10px;text-align:center}
+
+/* Daily Work on Overview */
+.hub-work-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.hub-work-day.overdue{border-color:#ead8ca}
+.hub-work-day.overdue .hub-work-day-head{background:#fff4eb}
+.hub-daily-task{appearance:none;border:0;border-bottom:1px solid #eee8df;background:#fff;padding:11px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;text-align:left;font:inherit;cursor:pointer;width:100%}
+.hub-daily-task:last-child{border-bottom:0}.hub-daily-task:hover{background:#eef3f0}
+.hub-daily-task strong{font-size:11px;display:block;color:#202b27}.hub-daily-task small{font-size:9px;color:var(--muted);display:block;margin-top:3px}
+
+@media(max-width:1250px){.work-board{grid-template-columns:repeat(2,minmax(0,1fr))}.hub-work-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.work-board,.hub-work-grid{grid-template-columns:1fr}}
