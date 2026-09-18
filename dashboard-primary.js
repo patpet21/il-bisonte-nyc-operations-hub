@@ -102,7 +102,7 @@
     const d=App.data||{};
     const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[];
     const todayKey=localDateKey(0),yesterdayKey=localDateKey(-1);
-    const todayWork=tasks.filter(t=>!closed(t)&&String(t.due||'').slice(0,10)===todayKey);
+    const todayWork=tasks.filter(t=>String(t.due||'').slice(0,10)===todayKey);
     const yesterdayDone=tasks.filter(t=>closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
     const yesterdayOpen=tasks.filter(t=>!closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
     const activeProjects=projects.filter(x=>!closed(x));
