@@ -3,6 +3,7 @@
 
   App.nav.it_admin=[
     ['dashboard','⌂','Overview'],
+    ['work','✓','Work'],
     ['roadmap','◆','Roadmap'],
     ['pmworklog','◷','My PM Work'],
     ['projects','□','Projects'],
@@ -14,7 +15,7 @@
     ['decisions','!','Decisions'],
     ['activity','≋','Activity Log']
   ];
-  App.nav.read_only=[['dashboard','⌂','Overview'],['projects','□','Projects'],['requests','△','Issues'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','Procedures']];
+  App.nav.read_only=[['dashboard','⌂','Overview'],['work','✓','Work'],['projects','□','Projects'],['requests','△','Issues'],['vendors','◉','Vendors'],['systems','⌘','Systems'],['sops','▤','Procedures']];
 
   function normalizeDemoPermissions(){
     if(window.IB_CONFIG?.auth?.mode!=='demo')return;
