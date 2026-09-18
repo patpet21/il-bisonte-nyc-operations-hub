@@ -101,3 +101,24 @@
 
 @media(max-width:1100px){.request-card-grid{grid-template-columns:1fr}.request-summary{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.request-summary{grid-template-columns:1fr 1fr}.request-toolbar{align-items:flex-start;flex-direction:column}.request-card-top{flex-direction:column}.request-badges{justify-content:flex-start}.request-card-meta{grid-template-columns:1fr}}
+
+
+/* Work activity: real PM worklog surfaced on the Overview */
+.hub-v2-head-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hub-work-panel{overflow:hidden}
+.hub-work-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
+.hub-work-day{border:1px solid #e3ddd2;border-radius:11px;background:#fff;overflow:hidden}
+.hub-work-day-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;background:#f7f3eb;border-bottom:1px solid #e8e2d8}
+.hub-work-day-head span{display:block;font-size:9px;letter-spacing:.12em;color:#7d817b;font-weight:800}
+.hub-work-day-head strong{display:block;font-size:12px;margin-top:2px;color:#24312d}
+.hub-work-total{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.hub-work-total b{font-size:10px;padding:5px 7px;border-radius:999px;background:#e9f0ec;color:#35634b}
+.hub-work-entries{display:grid}
+.hub-work-entry{appearance:none;border:0;border-bottom:1px solid #eee8df;background:#fff;padding:11px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;text-align:left;font:inherit;cursor:pointer}
+.hub-work-entry:last-child{border-bottom:0}.hub-work-entry:hover{background:#f6f8f6}
+.hub-work-entry strong{font-size:11px;display:block;color:#202b27}.hub-work-entry small{font-size:9px;color:var(--muted);display:block;margin-top:3px}
+.hub-work-entry>b{font-size:10px;color:#39433f;white-space:nowrap;align-self:center}
+.hub-work-entry.fee{background:#fbf8f1}.hub-work-entry.fee:hover{background:#f6f0e6}
+.hub-v2-table tbody tr[data-project-id],.hub-v2-table tbody tr[data-request-id],.hub-v2-minirow[data-request-id],.hub-v2-minirow[data-project-id]{cursor:pointer}
+.hub-v2-table tbody tr[data-project-id]:hover,.hub-v2-table tbody tr[data-request-id]:hover{background:#eef3f0!important}
+@media(max-width:850px){.hub-work-grid{grid-template-columns:1fr}}
