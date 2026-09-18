@@ -47,7 +47,6 @@
     ensureNavigationShell();
     renameWorkNavigation();
     installMobileSidebarTools();
-    installDashboard();
     observeWorklogWording();
     renderNav();
     if(App.page==='dashboard')render();
