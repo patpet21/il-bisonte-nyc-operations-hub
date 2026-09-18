@@ -14,6 +14,7 @@ async function init(){
   $('#roleSelect').value=App.role;
   $('#roleSelect').addEventListener('change',e=>{App.role=e.target.value;App.page='dashboard';render();});
   $('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter')toast(`Search ready for: ${e.target.value||'all records'}`)});
+  const brand=$('.brand');if(brand){brand.style.cursor='pointer';brand.title='Back to Overview';brand.onclick=()=>{App.page='dashboard';render();};}
   App.data=await window.IBData.getAll();render();
 }
 function render(){renderNav();renderPage();}
