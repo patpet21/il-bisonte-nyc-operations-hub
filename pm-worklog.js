@@ -3,6 +3,8 @@
   const REMOTE_CACHE_PREFIX='ib_pm_worklog_remote_v02:';
   const REFRESH_TTL_MS=30000;
   const REQUEST_TIMEOUT_MS=12000;
+  const DEFAULT_HOURLY_RATE=40;
+  const ONSITE_VISIT_FEE=30;
   const VIEW_ROLES=new Set(['project_manager','management','it_admin']);
   const EDIT_ROLES=new Set(['project_manager','it_admin']);
   const initialRows=[
@@ -158,7 +160,7 @@
   function projectOptions(value){return `<option value="">General / Multi-project</option>${((typeof App!=='undefined'?App.data?.projects:null)||[]).map(p=>`<option value="${escHtml(p.id)}" ${p.id===value?'selected':''}>${escHtml(p.id)} · ${escHtml(p.name)}</option>`).join('')}`;}
   function openEditor(row=null){
     if(!canEdit()||(isBackend()&&sourceState!=='live')){if(typeof toast==='function')toast('Live PM edit access is not available for this account right now.');return;}
-    const r=row||{workDate:new Date().toISOString().slice(0,10),startTime:'',endTime:'',hours:'',workMode:'Remote',category:'Project Coordination',projectId:'',activity:'',description:'',stakeholders:'',status:'Completed',billingType:'Hourly',rate:35,amount:'',invoiceStatus:'Not Invoiced',evidenceRef:'',notes:''};
+    const r=row||{workDate:new Date().toISOString().slice(0,10),startTime:'',endTime:'',hours:'',workMode:'Remote',category:'Project Coordination',projectId:'',activity:'',description:'',stakeholders:'',status:'Completed',billingType:'Hourly',rate:DEFAULT_HOURLY_RATE,amount:'',invoiceStatus:'Not Invoiced',evidenceRef:'',notes:''};
     const modal=document.createElement('div');modal.className='pmw-modal';modal.innerHTML=`<div class="pmw-modal-card"><div class="pmw-modal-head"><div><div class="eyebrow">PM WORKLOG</div><h2>${row?'Edit work entry':'Log new work'}</h2></div><button class="pmw-close" aria-label="Close">×</button></div><form id="pmwForm" class="pmw-form">
       ${field('workDate','Work date',`<input NAME type="date" value="${escHtml(r.workDate||'')}">`)}
       ${field('workMode','Work mode',`<select NAME><option ${r.workMode==='On-site'?'selected':''}>On-site</option><option ${r.workMode==='Remote'?'selected':''}>Remote</option><option ${r.workMode==='Hybrid'?'selected':''}>Hybrid</option></select>`)}
@@ -173,6 +175,7 @@
       ${field('billingType','Billing type',`<select NAME>${['Hourly','Flat Fee','Included in Monthly Retainer','Non-Billable'].map(x=>`<option ${x===r.billingType?'selected':''}>${x}</option>`).join('')}</select>`)}
       ${field('rate','Rate',`<input NAME type="number" min="0" step="0.01" value="${r.rate===''?'':number(r.rate)}">`)}
       ${field('amount','Amount',`<input NAME type="number" min="0" step="0.01" value="${r.amount===''?'':number(r.amount)}">`)}
+      <div class="pmw-field wide"><span>On-site fee</span><div id="pmwOnsiteFeeHint" class="muted"></div></div>
       ${field('invoiceStatus','Invoice status',`<select NAME>${['Not Invoiced','Draft','Invoiced','Paid','Not Billable'].map(x=>`<option ${x===r.invoiceStatus?'selected':''}>${x}</option>`).join('')}</select>`)}
       ${field('evidenceRef','Evidence / Activity ref',`<input NAME type="text" value="${escHtml(r.evidenceRef||'')}">`)}
       ${field('notes','Notes',`<textarea NAME rows="3">${escHtml(r.notes||'')}</textarea>`,true)}
@@ -181,10 +184,47 @@
     document.body.appendChild(modal);
     const form=modal.querySelector('#pmwForm'),close=()=>modal.remove();
     modal.querySelector('.pmw-close').onclick=close;modal.querySelector('.pmw-cancel').onclick=close;modal.addEventListener('click',e=>{if(e.target===modal)close()});
-    const recalc=()=>{const fd=new FormData(form),billing=fd.get('billingType'),h=number(fd.get('hours')),rate=number(fd.get('rate'));if(billing==='Hourly'&&h&&rate)form.elements.amount.value=(h*rate).toFixed(2);if(billing==='Non-Billable'){form.elements.amount.value='0';form.elements.invoiceStatus.value='Not Billable';}};
+    const recalc=()=>{const fd=new FormData(form),billing=fd.get('billingType'),mode=fd.get('workMode'),h=number(fd.get('hours'));let rate=number(fd.get('rate'));if(billing==='Hourly'&&!rate){form.elements.rate.value=DEFAULT_HOURLY_RATE;rate=DEFAULT_HOURLY_RATE;}if(billing==='Hourly'&&h&&rate)form.elements.amount.value=(h*rate).toFixed(2);if(billing==='Non-Billable'){form.elements.amount.value='0';form.elements.invoiceStatus.value='Not Billable';}const hint=form.querySelector('#pmwOnsiteFeeHint');if(hint)hint.textContent=(mode==='On-site'&&billing==='Hourly'&&form.elements.invoiceStatus.value!=='Not Billable')?`+${ONSITE_VISIT_FEE.toFixed(2)} visit fee will be logged automatically as a separate flat-fee entry.`:'No automatic on-site fee for this entry.';};
     const fromTimes=()=>{const s=form.elements.startTime.value,e=form.elements.endTime.value;if(!s||!e)return;const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number),mins=(eh*60+em)-(sh*60+sm);if(mins>=0){form.elements.hours.value=(mins/60).toFixed(2);recalc();}};
-    ['startTime','endTime'].forEach(n=>form.elements[n].addEventListener('change',fromTimes));['hours','rate','billingType'].forEach(n=>form.elements[n].addEventListener('input',recalc));
-    form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());data.hours=data.hours===''?'':number(data.hours);data.rate=data.rate===''?'':number(data.rate);data.amount=data.amount===''?0:number(data.amount);try{await persistEntry(row?.entryId||'',data);close();await refreshRows(true);if(typeof toast==='function')toast(row?'Work entry updated':'Work entry logged');}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}});
+    ['startTime','endTime'].forEach(n=>form.elements[n].addEventListener('change',fromTimes));['hours','rate','billingType','workMode','invoiceStatus'].forEach(n=>form.elements[n].addEventListener('input',recalc));recalc();
+    form.addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());data.hours=data.hours===''?'':number(data.hours);data.rate=data.rate===''?'':number(data.rate);data.amount=data.amount===''?0:number(data.amount);try{const saved=await persistEntry(row?.entryId||'',data);const savedId=row?.entryId||saved?.entryId||'';if(savedId)await syncOnsiteFee(savedId,data);close();await refreshRows(true);if(typeof toast==='function')toast(row?'Work entry updated':'Work entry logged');}catch(err){if(typeof toast==='function')toast(err.message);else alert(err.message);}});
+  }
+
+  async function syncOnsiteFee(parentId,data){
+    const evidence=`Auto fee for ${parentId}`;
+    const existing=rows.find(x=>String(x.evidenceRef||'')===evidence&&String(x.billingType||'')==='Flat Fee');
+    const shouldAdd=String(data.workMode)==='On-site'&&String(data.billingType)==='Hourly'&&String(data.invoiceStatus)!=='Not Billable';
+    if(!shouldAdd){
+      if(existing)await removeEntrySilently(existing.entryId);
+      return;
+    }
+    const feeData={
+      workDate:data.workDate||'',
+      startTime:'',
+      endTime:'',
+      hours:'',
+      workMode:'On-site',
+      category:'On-site Presence Fee',
+      projectId:data.projectId||'',
+      activity:'On-site attendance fee',
+      description:`Automatic on-site presence fee linked to ${parentId}.`,
+      stakeholders:data.stakeholders||'',
+      status:data.status||'Completed',
+      billingType:'Flat Fee',
+      rate:'',
+      amount:ONSITE_VISIT_FEE,
+      invoiceStatus:data.invoiceStatus||'Not Invoiced',
+      evidenceRef:evidence,
+      notes:`Automatically added for an On-site hourly work entry at the ${ONSITE_VISIT_FEE.toFixed(2)} visit fee.`
+    };
+    if(existing)await persistEntry(existing.entryId,feeData);
+    else await persistEntry('',feeData);
+  }
+
+  async function removeEntrySilently(id){
+    if(!id)return;
+    if(isBackend())await apiCall('deletePMWorklog',{id});
+    else saveLocal(currentRows().filter(x=>x.entryId!==id));
   }
 
   async function persistEntry(id,data){
