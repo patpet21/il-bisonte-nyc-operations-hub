@@ -107,6 +107,7 @@
   }
   function footer(){return '<p class="simple-footer">Il Bisonte NYC · I dati operativi restano nei registri originali. Le password non sono archiviate in questo sito.</p>';}
   function modal(title,fields,onSubmit){const host=document.querySelector('#modalRoot');if(!host)return;host.innerHTML='<div class="simple-modal-cover" role="presentation"><div class="simple-modal" role="dialog" aria-modal="true" aria-label="'+safe(title)+'"><div class="simple-modal-head"><h2>'+safe(title)+'</h2>'+button('✕','close-modal')+'</div><form class="simple-form" id="simpleEntryForm">'+fields+'<div class="simple-form-footer">'+button('Annulla','close-modal')+'<button class="simple-button primary" type="submit">Salva</button></div></form></div></div>';
+    localizeSimple(host);
     const form=host.querySelector('#simpleEntryForm');form.addEventListener('submit',async e=>{e.preventDefault();const submit=form.querySelector('[type="submit"]');submit.disabled=true;try{await onSubmit(Object.fromEntries(new FormData(form)));host.innerHTML='';App.data=await IBData.getAll();render();toast('Modifiche salvate');}catch(err){toast(err.message||'Salvataggio non riuscito');submit.disabled=false;}});
     host.querySelector('.simple-modal-cover').addEventListener('click',e=>{if(e.target.classList.contains('simple-modal-cover'))host.innerHTML='';});
   }
@@ -124,6 +125,15 @@
   // user-entered task/vendor records are never sent to an extra translation service.
   const EN_UI={
     'Impostazioni e strumenti':'Settings & tools',
+    'Referente:':'Contact:',
+    'Stato':'Status',
+    'Priorità':'Priority',
+    'Salva':'Save',
+    'Annulla':'Cancel',
+    'Note / prossimo passo':'Notes / next step',
+    'Referente / supporto':'Contact / support',
+    'Servizio':'Service',
+    'Data prevista':'Due date',
     'Qui trovi le funzioni aggiuntive. Il menu principale resta semplice.':'Additional functions, without cluttering the main menu.',
     'Lingua / Language':'Language / Lingua',
     'Seleziona la lingua del gestionale.':'Choose the workspace language.',
