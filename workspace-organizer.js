@@ -100,7 +100,7 @@
         '<p class="ib-partner-service">'+value(v.service,'Service to confirm')+'</p>'+
         '<dl class="ib-partner-fields">'+
           '<div><dt>Contact / Referente</dt><dd>'+value(contact,'To confirm')+'</dd></div>'+
-          (phone?'<div><dt>Phone / Telefono</dt><dd><a href="tel:'+value(phone.replace(/[^+\d]/g,''))+'">'+value(phone)+'</a></dd></div>':'')+
+          (phone?'<div><dt>Phone / Telefono</dt><dd><a href="tel:'+value(phone.replace(/\s*\(.*\)\s*$/,'').replace(/[^+\d]/g,''))+'">'+value(phone)+'</a></dd></div>':'')+
           (email?'<div><dt>Email / Assistenza</dt><dd><a href="mailto:'+value(email)+'">'+value(email)+'</a></dd></div>':'')+
         '</dl>'+
         (action?'<p class="ib-partner-next"><strong>Next action / Prossimo passo</strong><br>'+value(action)+'</p>':'')+
