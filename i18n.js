@@ -19,6 +19,20 @@
   let lastError='';
 
   const STATIC_IT={
+    'Partners & support':'Partner e assistenza',
+    'One card per company: named contacts, support channels and the next action, using the existing vendor register.':'Una scheda per azienda: referenti, canali di assistenza e prossimo passo, dal registro fornitori esistente.',
+    'Contact / Referente':'Referente',
+    'Phone / Telefono':'Telefono',
+    'Email / Assistenza':'Email assistenza',
+    'Next action / Prossimo passo':'Prossimo passo',
+    'Open details →':'Apri dettagli →',
+    'To confirm':'Da confermare',
+    'Service to confirm':'Servizio da confermare',
+    'Partners & technology':'Partner e tecnologia',
+    'Store operations':'Operazioni negozio',
+    'Projects & planning':'Progetti e pianificazione',
+    'Resources & access':'Risorse e accessi',
+    'Other tools':'Altri strumenti',
     'Overview':'Panoramica',
     'Activities':'Attività',
     'Partners':'Fornitori',

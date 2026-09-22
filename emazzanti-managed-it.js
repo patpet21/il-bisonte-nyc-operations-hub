@@ -51,7 +51,7 @@
   }catch(e){console.warn('eMazzanti demo migration skipped',e)}
   if(window.IBData){
     const baseGetAll=window.IBData.getAll.bind(window.IBData);
-    window.IBData.getAll=async function(){return patch(await baseGetAll())};
+    window.IBData.getAll=async function(){const data=await baseGetAll();return window.IB_CONFIG?.dataMode==='apps_script'?data:patch(data)};
     if(typeof window.IBData.reset==='function'){
       const baseReset=window.IBData.reset.bind(window.IBData);
       window.IBData.reset=async function(){const data=patch(await baseReset());try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}return data};
