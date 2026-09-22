@@ -1,5 +1,5 @@
 const CACHE='ib-ops-v0118-restore-access-language';
-const SHELL=['/','/index.html','/styles.css','/auth.css','/pm-worklog.css','/notifications.css','/access-modal.css','/ui-enhancements.css','/pass-vault.css','/i18n.css','/simple-hub.css?v=3','/config.js','/runtime-stability.js?v=0106','/auth.js','/signup.js','/data-provider.js','/access-provider.js','/app.js?v=0111','/startup-fast.js','/role-bootstrap.js?v=0111','/pm-worklog.js?v=0110','/notifications.js','/ui-enhancements.js','/pass-vault.js','/i18n.js','/simple-hub.js?v=3','/manifest.webmanifest','/icon.svg'];
+const SHELL=['/','/index.html','/complete-workspace.html','/styles.css','/auth.css','/pm-worklog.css','/notifications.css','/access-modal.css','/ui-enhancements.css','/pass-vault.css','/i18n.css','/simple-hub.css?v=3','/config.js','/runtime-stability.js?v=0106','/auth.js','/signup.js','/data-provider.js','/access-provider.js','/app.js?v=0111','/startup-fast.js','/role-bootstrap.js?v=0111','/pm-worklog.js?v=0110','/notifications.js','/ui-enhancements.js','/pass-vault.js','/i18n.js','/simple-hub.js?v=3','/manifest.webmanifest','/icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
