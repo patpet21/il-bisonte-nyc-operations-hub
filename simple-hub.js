@@ -5,7 +5,7 @@
   'use strict';
   const SHEET_URL='https://docs.google.com/spreadsheets/d/1cUYOUMcwLNOtNtsGUcqMcbKLKsRN_kGLfzz3072i4LE/edit';
   const REGISTER_URL='https://docs.google.com/spreadsheets/d/1oI4C08UaD8i-UppqIF4rNGOjkvvoSr0uZTZ8nUW27Ck/edit';
-  const NAV=[['dashboard','⌂','Overview'],['activities','✓','Activities'],['partners','◉','Partners'],['systems_simple','▦','Store systems'],['retail_simple','▣','Retail & POS'],['documents','▤','Documents'],['settings','⚙','Settings']];
+  const NAV=[['dashboard','⌂','Overview'],['activities','✓','Activities'],['partners','◉','Partners'],['retail_simple','▣','Retail & POS'],['systems_simple','▦','Store systems'],['settings','⚙','Settings']];
   let filter='priority', activityKind='tasks', query='';
   function role(){return window.IB_CONFIG?.dataMode==='apps_script'
     ?String(window.IBAuth?.current?.()?.user?.role||window.IB_CURRENT_USER?.role||'')
@@ -26,7 +26,7 @@
   function taskList(list,limit=0){let tasks=list.filter(taskMatches).sort(taskSort);if(limit)tasks=tasks.slice(0,limit);if(!tasks.length)return empty('Nessuna attività per questa selezione.');
     return '<div class="simple-list">'+tasks.map(t=>'<article class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(t.title)+'</div><div class="simple-task-meta">'+safe(t.owner||'Responsabile da assegnare')+(t.due?' · '+safe(t.due):'')+'</div>'+(t.notes?'<div class="simple-task-meta">'+safe(t.notes)+'</div>':'')+'</div><div class="simple-task-actions">'+chip(t.status)+(editRole()?button('Modifica','edit-task:'+t.id)+(closed(t.status)?button('Riapri','task-status:'+t.id+':In Progress'):button('Completa','task-status:'+t.id+':Completed','primary')):'')+'</div></article>').join('')+'</div>';}
   function issueList(items){if(!items.length)return empty('Nessuna segnalazione per questa selezione.');return '<div class="simple-list">'+items.map(t=>'<article class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(t.title)+'</div><div class="simple-task-meta">'+safe(t.owner||'Responsabile da assegnare')+' · '+safe(t.category||'Store')+'</div>'+(t.nextAction?'<div class="simple-task-meta">Prossimo passo: '+safe(t.nextAction)+'</div>':'')+'</div><div class="simple-task-actions">'+chip(t.status)+(editRole()?button('Modifica','edit-issue:'+t.id):'')+'</div></article>').join('')+'</div>';}
-  function focusedTasks(){const ids=new Set(['TSK-0004','TSK-0011','TSK-0025','TSK-0037','TSK-0038','TSK-0039','TSK-0041','TSK-0042','TSK-0043','TSK-0044']);const matched=rows('tasks').filter(t=>ids.has(t.id)&&!closed(t.status));return matched.length?matched:rows('tasks').filter(t=>!closed(t.status)).sort(taskSort).slice(0,5);}
+  function focusedTasks(){return rows('tasks').filter(t=>!closed(t.status)).sort(taskSort).slice(0,5);}
   function vendorFrom(term){return rows('vendors').find(v=>term.test(String(v.name||'')));}
   function vendorCard(name,initial,description,matcher){const v=vendorFrom(matcher);
     return '<article class="simple-card simple-vendor"><div class="simple-vendor-top"><div class="simple-vendor-icon">'+safe(initial)+'</div><div><strong>'+safe(v?.name||name)+'</strong><br><small>'+safe(description)+'</small></div></div><p>'+safe(v?.service||description)+'</p><div class="vendor-note"><b>Referente:</b> '+safe(v?.contact||'Da completare nel registro')+'</div><div class="vendor-note"><b>Prossimo passo:</b> '+safe(v?.nextAction||'Confermare servizi e contatti con Damiano')+'</div><div class="vendor-foot">'+chip(v?.status||'Da documentare')+(v&&editRole()?button('Aggiorna card','edit-vendor:'+v.id):'')+'</div></article>';
@@ -63,47 +63,103 @@
   function systems(root){const systems=rows('systems'),assets=rows('assets');root.innerHTML=header('Sistemi dello store','Computer, reti, programmi e dispositivi, senza informazioni inutili.',button('Aggiorna','refresh'))
       +'<section class="simple-card"><div class="simple-card-head"><h2>Sistemi e servizi</h2><span class="simple-count">'+systems.length+' elementi</span></div><div class="simple-systems">'+systems.map(s=>'<article class="simple-system"><h3>'+safe(s.name)+'</h3><p>Responsabile: '+safe(s.owner||'Da definire')+'</p><p>Supporto: '+safe(s.vendor||'Da definire')+'</p>'+chip(s.status)+'</article>').join('')+'</div></section>'
       +(assets.length?'<section class="simple-card" style="margin-top:15px"><div class="simple-card-head"><h2>Dispositivi</h2><span class="simple-count">'+assets.length+' elementi</span></div><div class="simple-systems">'+assets.map(s=>'<article class="simple-system"><h3>'+safe(s.name||s.assetType||'Dispositivo')+'</h3><p>'+safe(s.location||'Posizione da registrare')+'</p>'+chip(s.status)+'</article>').join('')+'</div></section>':'')+footer();}
-  function documents(root){const documents=[['Database operativo','Attività, segnalazioni e ore',SHEET_URL],['Registro IT & Operations','Contratti, dispositivi e servizi',REGISTER_URL],['Tutti gli strumenti originali','Progetti, roadmap, acquisti, Retail Pro e le altre sezioni precedenti','/complete-workspace.html']];
+  function documents(root){const documents=[['Database operativo','Attività, segnalazioni e ore',SHEET_URL],['Registro IT & Operations','Contratti, dispositivi e servizi',REGISTER_URL]];
     const sops=rows('sops');root.innerHTML=header('Documenti','Collegamenti utili: un clic per trovare il documento corretto.')
       +'<div class="simple-grid">'+documents.map(d=>'<article class="simple-card half"><h2>'+safe(d[0])+'</h2><p>'+safe(d[1])+'</p><div style="margin-top:16px"><a class="simple-button" href="'+safe(d[2])+'" target="_blank" rel="noopener noreferrer">Apri risorsa ↗</a></div></article>').join('')
       +'<section class="simple-card full"><div class="simple-card-head"><h2>Procedure operative</h2><span class="simple-count">'+sops.length+' registrate</span></div><div class="simple-list">'+sops.map(s=>'<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(s.title)+'</div><div class="simple-task-meta">'+safe(s.category||'Store')+' · '+safe(s.version||'')+'</div></div><div class="simple-task-actions">'+chip(s.status)+(typeof s.driveFileRef==='string'&&/^https:\/\//.test(s.driveFileRef)?'<a class="simple-button" href="'+safe(s.driveFileRef)+'" target="_blank" rel="noopener noreferrer">Apri ↗</a>':'')+'</div></div>').join('')+'</div></section></div>'+footer();}
-  function accessHub(root){
-    const admin=['project_manager','management','it_admin'].includes(role());
-    if(!admin){App.page='dashboard';return home(root);}
-    root.innerHTML=header('Passwords & access','Tutte le funzioni di credenziali e autorizzazioni, senza perdere le sezioni originali.',button('← Overview','page:dashboard'))
-      +'<div class="simple-grid">'
-      +'<article class="simple-card third"><h2>Pass · Password e credenziali</h2><p>Apri il registro riservato di accessi, password mascherate e riferimenti al vault privato.</p><div style="margin-top:18px">'+button('Apri Pass →','page:pass','primary')+'</div></article>'
-      +'<article class="simple-card third"><h2>Utenti e autorizzazioni</h2><p>Visualizza le richieste di accesso, gli utenti e i ruoli consentiti al tuo account.</p><div style="margin-top:18px">'+button('Gestisci accessi →','page:users')+'</div></article>'
-      +'<article class="simple-card third"><h2>Registro credenziali</h2><p>Responsabili degli account, dati di recupero e posizione delle credenziali aziendali.</p><div style="margin-top:18px">'+button('Apri registro →','page:credentials')+'</div></article>'
-      +'</div>'+footer();
-  }
+  // All operational routes now remain inside this same compact application shell.
+  function adminRole(){return ['project_manager','management','it_admin'].includes(role());}
   function fullTool(page,label){
-    const allowed=['pass','users','retail_systems','projects','roadmap','store_health','purchases_visits','sops','activity','systems'];
+    const allowed=['pass_simple','users_simple','projects_simple','docs_simple'];
     if(!allowed.includes(page))return '';
-    return '<a class="simple-button" href="/complete-workspace.html?page='+page+'">'+safe(label)+' ↗</a>';
+    return button(label,'page:'+page);
   }
+  function accessHub(root){return settings(root);}
   function retail(root){
-    const systems=rows('systems').filter(s=>/retail|prism|stealth|shop\.net|pos\.net/i.test([s.name,s.vendor].join(' ')));
-    root.innerHTML=header('Retail & POS','Programmi del negozio e riferimenti al supporto, senza schermate complicate.',fullTool('retail_systems','Dettagli e supporto'))
-      +'<section class="simple-card full"><div class="simple-list">'+
-      (systems.length?systems.map(s=>'<div class="simple-task"><div class="simple-task-main"><strong>'+safe(s.name)+'</strong><div class="simple-task-meta">'+safe(s.vendor||'Supporto da verificare')+' · '+safe(s.owner||'Responsabile da definire')+'</div>'+
+    const retailSystems=rows('systems').filter(s=>/retail|prism|stealth|shop\.net|pos\.net/i.test([s.name,s.vendor,s.details].join(' ')));
+    const support=rows('vendors').find(v=>/retail pro support/i.test(v.name||''));
+    const programs=[...retailSystems];
+    if(!programs.some(s=>/retail pro/i.test(s.name||''))&&support)
+      programs.unshift({name:'Retail Pro Prism',vendor:support.name,owner:'Damiano / Italy IT',status:'Da verificare'});
+    root.innerHTML=header('Retail & POS','Programmi del negozio e riferimenti al supporto.',button('Aggiorna','refresh'))+
+      '<section class="simple-card full"><div class="simple-list">'+
+      (programs.length?programs.map(s=>
+        '<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(s.name)+'</div>'+
+        '<div class="simple-task-meta">'+safe(s.vendor||'Supporto da verificare')+' · '+safe(s.owner||'Responsabile da definire')+'</div>'+
         (s.supportPhone?'<div class="simple-task-meta">Telefono: '+safe(s.supportPhone)+'</div>':'')+
         (s.supportEmail?'<div class="simple-task-meta">Email: '+safe(s.supportEmail)+'</div>':'')+
         '</div>'+chip(s.status)+'</div>').join(''):empty('Nessun sistema Retail registrato.'))+
-      '</div></section>'+footer();
+      '</div></section>'+
+      (support?'<section class="simple-card full simple-notice"><strong>Retail Pro Support</strong><p>'+safe(support.contact||'Referente da confermare')+
+        (support.phone?' · '+safe(support.phone):'')+(support.supportPhone?' · '+safe(support.supportPhone):'')+
+        (support.supportEmail?' · '+safe(support.supportEmail):'')+'</p>'+
+        (support.nextAction?'<p>'+safe(support.nextAction)+'</p>':'')+'</section>':'')+footer();
   }
   function settings(root){
-    const admin=['project_manager','management','it_admin'].includes(role());
-    const lang=window.IBI18n?.language?.()||'en';
-    root.innerHTML=header('Impostazioni e strumenti','Qui trovi le funzioni aggiuntive. Il menu principale resta semplice.')
-      +'<section class="simple-card full simple-settings">'+
-      '<div class="simple-settings-row"><div><h2>Lingua / Language</h2><p>Seleziona la lingua del gestionale.</p></div>'+
-      '<div class="simple-settings-actions">'+button('English','language:en',lang==='en'?'primary':'')+button('Italiano','language:it',lang==='it'?'primary':'')+'</div></div>'+
-      (admin?'<div class="simple-settings-row"><div><h2>Password e accessi</h2><p>Registro riservato e autorizzazioni, con i controlli originali.</p></div><div class="simple-settings-actions">'+fullTool('pass','Apri Pass')+fullTool('users','Utenti')+'</div></div>':'')+
-      '<div class="simple-settings-row"><div><h2>Strumenti completi</h2><p>Progetti, roadmap, acquisti, storico e altre funzioni originali.</p></div><div class="simple-settings-actions">'+
-      (admin?fullTool('projects','Progetti')+fullTool('roadmap','Roadmap')+fullTool('purchases_visits','Acquisti'):'')+
-      fullTool('sops','Procedure')+'</div></div>'+
+    const language=window.IBI18n?.language?.()||'en';
+    root.innerHTML=header('Impostazioni','Lingua, accessi e strumenti di supporto: tutto nello stesso gestionale.')+
+      '<section class="simple-card full simple-settings">'+
+      '<div class="simple-settings-row"><div><h2>Lingua / Language</h2><p>Seleziona la lingua dell’interfaccia.</p></div>'+
+      '<div class="simple-settings-actions">'+button('English','language:en',language==='en'?'primary':'')+
+        button('Italiano','language:it',language==='it'?'primary':'')+'</div></div>'+
+      (adminRole()?'<div class="simple-settings-row"><div><h2>Password e accessi</h2><p>Registro degli account e riferimenti al vault riservato.</p></div>'+
+        '<div class="simple-settings-actions">'+fullTool('pass_simple','Apri registro')+fullTool('users_simple','Utenti e ruoli')+'</div></div>':'')+
+      '<div class="simple-settings-row"><div><h2>Altre informazioni</h2><p>Progetti, documenti e registri del negozio.</p></div>'+
+      '<div class="simple-settings-actions">'+(adminRole()?fullTool('projects_simple','Progetti'):'')+
+      fullTool('docs_simple','Documenti')+'</div></div>'+
       '</section>'+footer();
+  }
+  function accessIndex(root){
+    if(!adminRole()){App.page='dashboard';return home(root);}
+    const connected=window.IB_CONFIG?.credentials?.sheetConnected===true;
+    const creds=rows('credentials');
+    root.innerHTML=header('Password e accessi','Account, referenti e posizione delle credenziali.',button('← Impostazioni','page:settings'))+
+      '<section class="simple-card full"><div class="simple-notice">'+
+      (connected?'Vault riservato configurato. L’accesso alle password dipende dalle autorizzazioni.':
+        'Il vault privato non è ancora collegato al gestionale: qui sono visibili soltanto i riferimenti agli account, non le password.')+
+      '</div><div class="simple-list">'+
+      (creds.length?creds.map(c=>
+        '<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(c.system||c.name||'Account')+'</div>'+
+        '<div class="simple-task-meta">'+safe(c.accountLabel||c.accessType||'')+' · '+safe(c.owner||'Responsabile da confermare')+'</div>'+
+        '<div class="simple-task-meta">'+safe(c.storageLocation||c.credentialLocation||'Vault aziendale')+'</div>'+
+        '</div>'+chip(c.status)+'</div>').join(''):empty('Nessun riferimento agli account disponibile.'))+
+      '</div></section>'+footer();
+  }
+  async function userDirectory(root){
+    if(!adminRole()){App.page='dashboard';return home(root);}
+    root.innerHTML=header('Utenti e autorizzazioni','Account del gestionale e relativi ruoli.',button('← Impostazioni','page:settings'))+
+      '<section class="simple-card full" id="simpleUserDirectory">'+empty('Caricamento utenti…')+'</section>';
+    try{
+      const users=await window.IBAccess.listUsers();
+      if(App.page!=='users_simple'||!root.isConnected)return;
+      const list=Array.isArray(users)?users:Array.isArray(users?.users)?users.users:[];
+      const canApprove=['management','it_admin'].includes(role())&&
+        window.IBAuth?.current?.()?.permissions?.approveUsers!==false;
+      root.querySelector('#simpleUserDirectory').innerHTML='<div class="simple-list">'+
+        (list.length?list.map(u=>
+          '<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(u.displayName||u.email||'Utente')+'</div>'+
+          '<div class="simple-task-meta">'+safe(u.email||'')+' · '+safe(u.role||'')+'</div></div>'+
+          '<div class="simple-task-actions">'+chip(u.status)+
+          (canApprove&&String(u.status||'').toLowerCase()==='pending'?
+            button('Approva','approve-user:'+u.email,'primary')+button('Rifiuta','reject-user:'+u.email):'')+
+          '</div></div>').join(''):empty('Nessun utente disponibile.'))+
+        '</div>';
+      localizeSimple(root);
+    }catch(err){
+      if(App.page==='users_simple'&&root.isConnected){
+        root.querySelector('#simpleUserDirectory').innerHTML=empty('Elenco utenti non disponibile: '+String(err?.message||'Accesso non autorizzato'));
+      }
+    }
+  }
+  function projects(root){
+    if(!adminRole()){App.page='dashboard';return home(root);}
+    root.innerHTML=header('Progetti','Stato e prossimi passi dei progetti del negozio.',button('← Impostazioni','page:settings'))+
+      '<section class="simple-card full"><div class="simple-list">'+
+      (rows('projects').length?rows('projects').map(p=>
+        '<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(p.name)+'</div>'+
+        '<div class="simple-task-meta">'+safe(p.owner||'Responsabile da definire')+(p.nextAction?' · '+safe(p.nextAction):'')+'</div>'+
+        '</div>'+chip(p.status)+'</div>').join(''):empty('Nessun progetto registrato.'))+
+      '</div></section>'+footer();
   }
   function footer(){return '<p class="simple-footer">Il Bisonte NYC · I dati operativi restano nei registri originali. Le password non sono archiviate in questo sito.</p>';}
   function modal(title,fields,onSubmit){const host=document.querySelector('#modalRoot');if(!host)return;host.innerHTML='<div class="simple-modal-cover" role="presentation"><div class="simple-modal" role="dialog" aria-modal="true" aria-label="'+safe(title)+'"><div class="simple-modal-head"><h2>'+safe(title)+'</h2>'+button('✕','close-modal')+'</div><form class="simple-form" id="simpleEntryForm">'+fields+'<div class="simple-form-footer">'+button('Annulla','close-modal')+'<button class="simple-button primary" type="submit">Salva</button></div></form></div></div>';
@@ -124,6 +180,30 @@
   // Base interface is Italian. Translate interface-only text locally for English;
   // user-entered task/vendor records are never sent to an extra translation service.
   const EN_UI={
+    'Impostazioni':'Settings',
+    'Lingua, accessi e strumenti di supporto: tutto nello stesso gestionale.':'Language, access and supporting tools in the same workspace.',
+    'Seleziona la lingua dell’interfaccia.':'Choose your interface language.',
+    'Registro degli account e riferimenti al vault riservato.':'Account register and private vault references.',
+    'Apri registro':'Open register',
+    'Utenti e ruoli':'Users & roles',
+    'Altre informazioni':'More information',
+    'Progetti, documenti e registri del negozio.':'Projects, documents and store registers.',
+    'Documenti':'Documents',
+    'Password e accessi':'Passwords & access',
+    'Account, referenti e posizione delle credenziali.':'Accounts, contacts and where credentials are kept.',
+    '← Impostazioni':'← Settings',
+    'Il vault privato non è ancora collegato al gestionale: qui sono visibili soltanto i riferimenti agli account, non le password.':'The private vault is not connected yet: this page shows account references, not passwords.',
+    'Vault riservato configurato. L’accesso alle password dipende dalle autorizzazioni.':'Private vault configured. Password access depends on your permissions.',
+    'Nessun riferimento agli account disponibile.':'No account references are available.',
+    'Utenti e autorizzazioni':'Users & permissions',
+    'Account del gestionale e relativi ruoli.':'Workspace accounts and their roles.',
+    'Caricamento utenti…':'Loading users…',
+    'Approva':'Approve',
+    'Rifiuta':'Reject',
+    'Nessun utente disponibile.':'No users available.',
+    'Progetti':'Projects',
+    'Stato e prossimi passi dei progetti del negozio.':'Store project status and next steps.',
+    'Nessun progetto registrato.':'No projects recorded.',
     'Impostazioni e strumenti':'Settings & tools',
     'Referente:':'Contact:',
     'Stato':'Status',
@@ -240,11 +320,11 @@
   App.nav.store_manager=NAV.slice();App.nav.project_manager=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.management=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','Work & hours']]);App.nav.it_admin=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.read_only=NAV.slice();
   renderNav=function(){const nav=document.querySelector('#sidebarNav');if(!nav)return;const items=navForRole();nav.innerHTML=items.map(([id,ic,l])=>'<button type="button" class="nav-btn '+(App.page===id?'active':'')+'" data-simple-nav="'+id+'"><span class="nav-icon">'+ic+'</span><span>'+safe(l)+'</span></button>').join('');};
   renderPage=function(){const root=document.querySelector('#pageRoot');if(!root||!App.data)return;const p=App.page;if(p==='pmworklog'){if(workRole())return window.IBPMWorklog.render(root);App.page='dashboard';}
-    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);if(p==='settings')return settings(root);if(p==='retail_simple')return retail(root);if(p==='access_hub')return accessHub(root);if(['pass','users','credentials'].includes(p)){App.page='settings';return settings(root);}App.page='dashboard';return home(root);};
+    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents'||p==='docs_simple')return documents(root);if(p==='settings')return settings(root);if(p==='retail_simple')return retail(root);if(p==='pass_simple')return accessIndex(root);if(p==='users_simple')return userDirectory(root);if(p==='projects_simple')return projects(root);if(p==='access_hub')return accessHub(root);App.page='dashboard';return home(root);};
   const baseSimpleRender=renderPage;
-  renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','retail_simple','documents','settings','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
-  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action.startsWith('language:')){window.IBI18n?.setLanguage?.(action.slice(9));return;}if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
+  renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','retail_simple','documents','docs_simple','settings','pass_simple','projects_simple','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
+  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action.startsWith('language:')){window.IBI18n?.setLanguage?.(action.slice(9));return;}if(action.startsWith('approve-user:')||action.startsWith('reject-user:')){const approve=action.startsWith('approve-user:');const email=action.slice(approve?13:12);if(!['management','it_admin'].includes(role()))return;const current=window.IBAuth?.current?.()?.user?.email||'Authorized administrator';window.IBAccess.setUserStatus(email,approve?'Approved':'Rejected',current).then(()=>userDirectory(document.querySelector('#pageRoot'))).catch(err=>toast(err.message||'Access update failed'));return;}if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
   document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Search activities and issues…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
-  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','retail_simple','documents','settings','access_hub'].includes(App.page))render();});
+  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','retail_simple','documents','docs_simple','settings','pass_simple','projects_simple','access_hub'].includes(App.page))render();});
   window.IBSimpleHub={refresh,navTo};
 })();
