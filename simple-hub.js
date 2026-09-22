@@ -5,7 +5,7 @@
   'use strict';
   const SHEET_URL='https://docs.google.com/spreadsheets/d/1cUYOUMcwLNOtNtsGUcqMcbKLKsRN_kGLfzz3072i4LE/edit';
   const REGISTER_URL='https://docs.google.com/spreadsheets/d/1oI4C08UaD8i-UppqIF4rNGOjkvvoSr0uZTZ8nUW27Ck/edit';
-  const NAV=[['dashboard','⌂','Overview'],['activities','✓','Activities'],['partners','◉','Partners'],['systems_simple','▦','Store systems'],['documents','▤','Documents']];
+  const NAV=[['dashboard','⌂','Overview'],['activities','✓','Activities'],['partners','◉','Partners'],['systems_simple','▦','Store systems'],['retail_simple','▣','Retail & POS'],['documents','▤','Documents'],['settings','⚙','Settings']];
   let filter='priority', activityKind='tasks', query='';
   function role(){return window.IB_CONFIG?.dataMode==='apps_script'
     ?String(window.IBAuth?.current?.()?.user?.role||window.IB_CURRENT_USER?.role||'')
@@ -77,6 +77,34 @@
       +'<article class="simple-card third"><h2>Registro credenziali</h2><p>Responsabili degli account, dati di recupero e posizione delle credenziali aziendali.</p><div style="margin-top:18px">'+button('Apri registro →','page:credentials')+'</div></article>'
       +'</div>'+footer();
   }
+  function fullTool(page,label){
+    const allowed=['pass','users','retail_systems','projects','roadmap','store_health','purchases_visits','sops','activity','systems'];
+    if(!allowed.includes(page))return '';
+    return '<a class="simple-button" href="/complete-workspace.html?page='+page+'">'+safe(label)+' ↗</a>';
+  }
+  function retail(root){
+    const systems=rows('systems').filter(s=>/retail|prism|stealth|shop\.net|pos\.net/i.test([s.name,s.vendor].join(' ')));
+    root.innerHTML=header('Retail & POS','Programmi del negozio e riferimenti al supporto, senza schermate complicate.',fullTool('retail_systems','Dettagli e supporto'))
+      +'<section class="simple-card full"><div class="simple-list">'+
+      (systems.length?systems.map(s=>'<div class="simple-task"><div class="simple-task-main"><strong>'+safe(s.name)+'</strong><div class="simple-task-meta">'+safe(s.vendor||'Supporto da verificare')+' · '+safe(s.owner||'Responsabile da definire')+'</div>'+
+        (s.supportPhone?'<div class="simple-task-meta">Telefono: '+safe(s.supportPhone)+'</div>':'')+
+        (s.supportEmail?'<div class="simple-task-meta">Email: '+safe(s.supportEmail)+'</div>':'')+
+        '</div>'+chip(s.status)+'</div>').join(''):empty('Nessun sistema Retail registrato.'))+
+      '</div></section>'+footer();
+  }
+  function settings(root){
+    const admin=['project_manager','management','it_admin'].includes(role());
+    const lang=window.IBI18n?.language?.()||'en';
+    root.innerHTML=header('Impostazioni e strumenti','Qui trovi le funzioni aggiuntive. Il menu principale resta semplice.')
+      +'<section class="simple-card full simple-settings">'+
+      '<div class="simple-settings-row"><div><h2>Lingua / Language</h2><p>Seleziona la lingua del gestionale.</p></div>'+
+      '<div class="simple-settings-actions">'+button('English','language:en',lang==='en'?'primary':'')+button('Italiano','language:it',lang==='it'?'primary':'')+'</div></div>'+
+      (admin?'<div class="simple-settings-row"><div><h2>Password e accessi</h2><p>Registro riservato e autorizzazioni, con i controlli originali.</p></div><div class="simple-settings-actions">'+fullTool('pass','Apri Pass')+fullTool('users','Utenti')+'</div></div>':'')+
+      '<div class="simple-settings-row"><div><h2>Strumenti completi</h2><p>Progetti, roadmap, acquisti, storico e altre funzioni originali.</p></div><div class="simple-settings-actions">'+
+      (admin?fullTool('projects','Progetti')+fullTool('roadmap','Roadmap')+fullTool('purchases_visits','Acquisti'):'')+
+      fullTool('sops','Procedure')+'</div></div>'+
+      '</section>'+footer();
+  }
   function footer(){return '<p class="simple-footer">Il Bisonte NYC · I dati operativi restano nei registri originali. Le password non sono archiviate in questo sito.</p>';}
   function modal(title,fields,onSubmit){const host=document.querySelector('#modalRoot');if(!host)return;host.innerHTML='<div class="simple-modal-cover" role="presentation"><div class="simple-modal" role="dialog" aria-modal="true" aria-label="'+safe(title)+'"><div class="simple-modal-head"><h2>'+safe(title)+'</h2>'+button('✕','close-modal')+'</div><form class="simple-form" id="simpleEntryForm">'+fields+'<div class="simple-form-footer">'+button('Annulla','close-modal')+'<button class="simple-button primary" type="submit">Salva</button></div></form></div></div>';
     const form=host.querySelector('#simpleEntryForm');form.addEventListener('submit',async e=>{e.preventDefault();const submit=form.querySelector('[type="submit"]');submit.disabled=true;try{await onSubmit(Object.fromEntries(new FormData(form)));host.innerHTML='';App.data=await IBData.getAll();render();toast('Modifiche salvate');}catch(err){toast(err.message||'Salvataggio non riuscito');submit.disabled=false;}});
@@ -95,6 +123,26 @@
   // Base interface is Italian. Translate interface-only text locally for English;
   // user-entered task/vendor records are never sent to an extra translation service.
   const EN_UI={
+    'Impostazioni e strumenti':'Settings & tools',
+    'Qui trovi le funzioni aggiuntive. Il menu principale resta semplice.':'Additional functions, without cluttering the main menu.',
+    'Lingua / Language':'Language / Lingua',
+    'Seleziona la lingua del gestionale.':'Choose the workspace language.',
+    'Password e accessi':'Passwords & access',
+    'Registro riservato e autorizzazioni, con i controlli originali.':'Private access register and original authorization controls.',
+    'Strumenti completi':'More tools',
+    'Progetti, roadmap, acquisti, storico e altre funzioni originali.':'Projects, roadmap, purchases, history and other original functions.',
+    'Apri Pass':'Open Pass',
+    'Utenti':'Users',
+    'Progetti':'Projects',
+    'Acquisti':'Purchases',
+    'Procedure':'Procedures',
+    'Retail & POS':'Retail & POS',
+    'Programmi del negozio e riferimenti al supporto, senza schermate complicate.':'Store applications and support contacts, without extra clutter.',
+    'Dettagli e supporto':'Support details',
+    'Supporto da verificare':'Support to confirm',
+    'Responsabile da definire':'Owner to confirm',
+    'Telefono:':'Phone:',
+    'Nessun sistema Retail registrato.':'No retail systems recorded.',
     'Lo store, senza complicazioni':'Store operations, made simple',
     'Le attività da chiudere e i contatti utili, in un unico posto.':'What needs doing and who to contact, in one place.',
     'Aggiorna dati':'Refresh data','+ Nuova attività':'+ New activity',
@@ -178,15 +226,15 @@
     }
   }
 
-  function navForRole(){const out=NAV.slice();if(['project_manager','management','it_admin'].includes(role())){out.push(['access_hub','◇','Passwords & access']);if(workRole())out.push(['pmworklog','◷','My work & hours']);}return out;}
+  function navForRole(){const out=NAV.slice();if(workRole())out.splice(out.length-1,0,['pmworklog','◷','My work & hours']);return out;}
   App.nav.store_manager=NAV.slice();App.nav.project_manager=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.management=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','Work & hours']]);App.nav.it_admin=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.read_only=NAV.slice();
   renderNav=function(){const nav=document.querySelector('#sidebarNav');if(!nav)return;const items=navForRole();nav.innerHTML=items.map(([id,ic,l])=>'<button type="button" class="nav-btn '+(App.page===id?'active':'')+'" data-simple-nav="'+id+'"><span class="nav-icon">'+ic+'</span><span>'+safe(l)+'</span></button>').join('');};
   renderPage=function(){const root=document.querySelector('#pageRoot');if(!root||!App.data)return;const p=App.page;if(p==='pmworklog'){if(workRole())return window.IBPMWorklog.render(root);App.page='dashboard';}
-    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);if(p==='access_hub')return accessHub(root);if(['pass','users','credentials'].includes(p))return root.innerHTML=header('Apertura accessi','Caricamento della sezione riservata…',button('← Passwords & access','page:access_hub'));App.page='dashboard';return home(root);};
+    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);if(p==='settings')return settings(root);if(p==='retail_simple')return retail(root);if(p==='access_hub')return accessHub(root);if(['pass','users','credentials'].includes(p)){App.page='settings';return settings(root);}App.page='dashboard';return home(root);};
   const baseSimpleRender=renderPage;
-  renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','documents','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
-  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
+  renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','retail_simple','documents','settings','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
+  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action.startsWith('language:')){window.IBI18n?.setLanguage?.(action.slice(9));return;}if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
   document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Search activities and issues…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
-  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','documents','access_hub'].includes(App.page))render();});
+  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','retail_simple','documents','settings','access_hub'].includes(App.page))render();});
   window.IBSimpleHub={refresh,navTo};
 })();
