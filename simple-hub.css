@@ -89,3 +89,14 @@ body{background:#f5f6f2;color:var(--ib-ink)}
 .pmw-grid,.pmw-kpis{min-width:0}
 @media(max-width:1030px){.simple-hero{grid-column:span 12}.simple-summary{grid-column:span 12}.simple-card.third{grid-column:span 6}.simple-card.quarter{grid-column:span 6}.simple-systems{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.app-shell{display:block}.sidebar{position:static;min-height:auto;padding:15px 16px 9px}.brand{display:flex;align-items:center;gap:9px;padding:0 0 11px;border:0}.brand-mark{width:28px;height:28px;font-size:15px}.brand-name{font-size:18px;margin:0}.brand-sub{display:none}.sidebar-nav{display:flex;flex-direction:row;overflow-x:auto;gap:4px;padding:0 0 4px}.nav-btn{width:auto;flex:0 0 auto;padding:9px 10px;font-size:12px}.nav-icon{width:auto;font-size:14px}.sidebar-foot{display:none}.topbar{height:56px;padding:0 16px}.search-wrap{width:min(52vw,290px)}.search-wrap input{padding:9px 11px 9px 32px;font-size:12px}.search-icon{top:5px;left:10px}.env-badge,.role-label,.role-select{display:none}.page-root{padding:19px 14px}.simple-head{align-items:start;flex-direction:column;gap:14px}.simple-card{padding:16px}.simple-card.half,.simple-card.third,.simple-card.quarter{grid-column:span 12}.simple-hero{padding:20px;min-height:175px}.simple-hero h2{font-size:29px}.simple-vendors,.simple-systems{grid-template-columns:1fr}.simple-task{flex-direction:column}.simple-task-actions{width:100%;justify-content:flex-start}.simple-form{grid-template-columns:1fr}.simple-field{grid-column:1/-1}.simple-form-footer{flex-wrap:wrap}}
+
+/* Extra tools and language live in one quiet, list-style settings area. */
+.simple-settings{padding:8px 20px}
+.simple-settings-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 2px;border-bottom:1px solid var(--ib-line)}
+.simple-settings-row:last-child{border-bottom:0}
+.simple-settings-row h2{font:700 15px/1.3 'DM Sans',sans-serif;margin:0 0 5px}
+.simple-settings-row p{margin:0;font-size:12px;color:var(--ib-muted)}
+.simple-settings-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;flex-shrink:0}
+.simple-settings-actions .simple-button{font-size:12px;padding:9px 12px}
+.simple-settings-row .simple-button:focus-visible{outline:3px solid #9cb8a4;outline-offset:2px}
+@media(max-width:760px){.simple-settings-row{flex-direction:column;align-items:flex-start;gap:10px}.simple-settings-actions{justify-content:flex-start;flex-shrink:1}}
