@@ -63,10 +63,20 @@
   function systems(root){const systems=rows('systems'),assets=rows('assets');root.innerHTML=header('Sistemi dello store','Computer, reti, programmi e dispositivi, senza informazioni inutili.',button('Aggiorna','refresh'))
       +'<section class="simple-card"><div class="simple-card-head"><h2>Sistemi e servizi</h2><span class="simple-count">'+systems.length+' elementi</span></div><div class="simple-systems">'+systems.map(s=>'<article class="simple-system"><h3>'+safe(s.name)+'</h3><p>Responsabile: '+safe(s.owner||'Da definire')+'</p><p>Supporto: '+safe(s.vendor||'Da definire')+'</p>'+chip(s.status)+'</article>').join('')+'</div></section>'
       +(assets.length?'<section class="simple-card" style="margin-top:15px"><div class="simple-card-head"><h2>Dispositivi</h2><span class="simple-count">'+assets.length+' elementi</span></div><div class="simple-systems">'+assets.map(s=>'<article class="simple-system"><h3>'+safe(s.name||s.assetType||'Dispositivo')+'</h3><p>'+safe(s.location||'Posizione da registrare')+'</p>'+chip(s.status)+'</article>').join('')+'</div></section>':'')+footer();}
-  function documents(root){const documents=[['Database operativo','Attività, segnalazioni e ore',SHEET_URL],['Registro IT & Operations','Contratti, dispositivi e servizi',REGISTER_URL]];
+  function documents(root){const documents=[['Database operativo','Attività, segnalazioni e ore',SHEET_URL],['Registro IT & Operations','Contratti, dispositivi e servizi',REGISTER_URL],['Tutti gli strumenti originali','Progetti, roadmap, acquisti, Retail Pro e le altre sezioni precedenti','/complete-workspace.html']];
     const sops=rows('sops');root.innerHTML=header('Documenti','Collegamenti utili: un clic per trovare il documento corretto.')
-      +'<div class="simple-grid">'+documents.map(d=>'<article class="simple-card half"><h2>'+safe(d[0])+'</h2><p>'+safe(d[1])+'</p><div style="margin-top:16px"><a class="simple-button" href="'+safe(d[2])+'" target="_blank" rel="noopener noreferrer">Apri Google Sheet ↗</a></div></article>').join('')
+      +'<div class="simple-grid">'+documents.map(d=>'<article class="simple-card half"><h2>'+safe(d[0])+'</h2><p>'+safe(d[1])+'</p><div style="margin-top:16px"><a class="simple-button" href="'+safe(d[2])+'" target="_blank" rel="noopener noreferrer">Apri risorsa ↗</a></div></article>').join('')
       +'<section class="simple-card full"><div class="simple-card-head"><h2>Procedure operative</h2><span class="simple-count">'+sops.length+' registrate</span></div><div class="simple-list">'+sops.map(s=>'<div class="simple-task"><div class="simple-task-main"><div class="simple-task-title">'+safe(s.title)+'</div><div class="simple-task-meta">'+safe(s.category||'Store')+' · '+safe(s.version||'')+'</div></div><div class="simple-task-actions">'+chip(s.status)+(typeof s.driveFileRef==='string'&&/^https:\/\//.test(s.driveFileRef)?'<a class="simple-button" href="'+safe(s.driveFileRef)+'" target="_blank" rel="noopener noreferrer">Apri ↗</a>':'')+'</div></div>').join('')+'</div></section></div>'+footer();}
+  function accessHub(root){
+    const admin=['project_manager','management','it_admin'].includes(role());
+    if(!admin){App.page='dashboard';return home(root);}
+    root.innerHTML=header('Passwords & access','Tutte le funzioni di credenziali e autorizzazioni, senza perdere le sezioni originali.',button('← Overview','page:dashboard'))
+      +'<div class="simple-grid">'
+      +'<article class="simple-card third"><h2>Pass · Password e credenziali</h2><p>Apri il registro riservato di accessi, password mascherate e riferimenti al vault privato.</p><div style="margin-top:18px">'+button('Apri Pass →','page:pass','primary')+'</div></article>'
+      +'<article class="simple-card third"><h2>Utenti e autorizzazioni</h2><p>Visualizza le richieste di accesso, gli utenti e i ruoli consentiti al tuo account.</p><div style="margin-top:18px">'+button('Gestisci accessi →','page:users')+'</div></article>'
+      +'<article class="simple-card third"><h2>Registro credenziali</h2><p>Responsabili degli account, dati di recupero e posizione delle credenziali aziendali.</p><div style="margin-top:18px">'+button('Apri registro →','page:credentials')+'</div></article>'
+      +'</div>'+footer();
+  }
   function footer(){return '<p class="simple-footer">Il Bisonte NYC · I dati operativi restano nei registri originali. Le password non sono archiviate in questo sito.</p>';}
   function modal(title,fields,onSubmit){const host=document.querySelector('#modalRoot');if(!host)return;host.innerHTML='<div class="simple-modal-cover" role="presentation"><div class="simple-modal" role="dialog" aria-modal="true" aria-label="'+safe(title)+'"><div class="simple-modal-head"><h2>'+safe(title)+'</h2>'+button('✕','close-modal')+'</div><form class="simple-form" id="simpleEntryForm">'+fields+'<div class="simple-form-footer">'+button('Annulla','close-modal')+'<button class="simple-button primary" type="submit">Salva</button></div></form></div></div>';
     const form=host.querySelector('#simpleEntryForm');form.addEventListener('submit',async e=>{e.preventDefault();const submit=form.querySelector('[type="submit"]');submit.disabled=true;try{await onSubmit(Object.fromEntries(new FormData(form)));host.innerHTML='';App.data=await IBData.getAll();render();toast('Modifiche salvate');}catch(err){toast(err.message||'Salvataggio non riuscito');submit.disabled=false;}});
@@ -82,12 +92,101 @@
     modal('Aggiorna '+v.name,field('contact','Referente / supporto',v.contact||'','text',true)+field('service','Servizio',v.service||'','text',true)+field('status','Stato',v.status||'')+textarea('nextAction','Prossimo passo',v.nextAction||''),data=>IBData.updateVendor(id,data));}
   async function updateStatus(id,status){if(!editRole())return;const row=rows('tasks').find(x=>x.id===id);if(!row)return;try{await IBData.updateTask(id,{status});App.data=await IBData.getAll();render();toast('Stato aggiornato');}catch(err){toast(err.message||'Modifica non riuscita');}}
   async function refresh(){try{App.data=await IBData.getAll();render();toast('Dati aggiornati');}catch(err){toast(err.message||'Aggiornamento non disponibile');}}
-  function navForRole(){const out=NAV.slice();if(workRole()||['project_manager','management','it_admin'].includes(role()))out.push(['pmworklog','◷','My work & hours']);return out;}
-  App.nav.store_manager=NAV.slice();App.nav.project_manager=NAV.concat([['pmworklog','◷','My work & hours']]);App.nav.management=NAV.concat([['pmworklog','◷','Work & hours']]);App.nav.it_admin=NAV.concat([['pmworklog','◷','My work & hours']]);App.nav.read_only=NAV.slice();
+  // Base interface is Italian. Translate interface-only text locally for English;
+  // user-entered task/vendor records are never sent to an extra translation service.
+  const EN_UI={
+    'Lo store, senza complicazioni':'Store operations, made simple',
+    'Le attività da chiudere e i contatti utili, in un unico posto.':'What needs doing and who to contact, in one place.',
+    'Aggiorna dati':'Refresh data','+ Nuova attività':'+ New activity',
+    'Le cose importanti, subito.':'The important things, right away.',
+    'Apri le attività, assegna un responsabile e registra ciò che è stato completato. Lo storico resta nel database.':'Open activities, assign an owner and mark what is done. History stays in the database.',
+    'Apri attività →':'Open activities →','Attività aperte':'Open activities',
+    'In attesa':'Waiting','Segnalazioni aperte':'Open issues','Completate (storico)':'Completed (history)',
+    'Da seguire adesso':'Current priorities','Vedi tutte →':'View all →',
+    'Fornitori e supporto':'Vendors & support','Tutte le card →':'All cards →',
+    'Rete e supporto IT':'Network & IT support','Incarico tecnico iniziale':'Initial technical engagement',
+    'Il mio lavoro e le ore':'My work & hours',
+    'Ore, attività, compensi e stato fatture, senza perdere lo storico.':'Hours, activities, fees and invoices, with full history.',
+    'Apri registro →':'Open register →',
+    'Attività':'Activities','Cosa fare, chi se ne occupa e cosa è stato completato.':'What to do, who owns it and what has been completed.',
+    'Aggiorna':'Refresh','Segnalazioni':'Issues','Da seguire':'To follow up','Completate':'Completed',
+    'Tutte':'All','Aperte':'Open','Chiuse':'Closed','Nuova segnalazione':'New issue',
+    'Lo storico è conservato in Google Sheets.':'History is preserved in Google Sheets.',
+    'Nessuna attività per questa selezione.':'No activities match this filter.',
+    'Nessuna segnalazione per questa selezione.':'No issues match this filter.',
+    'Responsabile da assegnare':'Owner to assign','Prossimo passo:':'Next step:',
+    'Modifica':'Edit','Riapri':'Reopen','Completa':'Complete','Da verificare':'To verify',
+    'Contatti & supporto':'Contacts & support',
+    'Una card per ogni fornitore: ruolo, referente e prossimo passo.':'One card per vendor: role, contact and next step.',
+    'Referente:':'Contact:','Prossimo passo:':'Next step:',
+    'Da completare nel registro':'To complete in the register',
+    'Confermare servizi e contatti con Damiano':'Confirm services and contacts with Damiano',
+    'Da documentare':'Needs documentation','Aggiorna card':'Update card',
+    'Rete, WatchGuard e supporto eCare':'Network, WatchGuard and eCare support',
+    'Coordinamento dell’incarico tecnico iniziale':'Initial technical work coordination',
+    "Coordinamento dell'incarico tecnico iniziale":'Initial technical work coordination',
+    'Prism, server e migrazione Retail Pro':'Prism, server and Retail Pro migration',
+    'Assistenza applicativa e supporto POS':'Application and POS support',
+    'Connessione Internet principale':'Primary internet connection',
+    'Servizi telefonici e connettività da verificare':'Phone and connectivity services to verify',
+    'Altri fornitori':'Other vendors',
+    'Le card RIS senza un record nel database indicano chiaramente i dati da completare; non vengono inventati numeri di telefono o contratti.':'Cards without a database record show missing details instead of inventing contacts or contract information.',
+    'Sistemi dello store':'Store systems',
+    'Computer, reti, programmi e dispositivi, senza informazioni inutili.':'Computers, networks, software and devices at a glance.',
+    'Sistemi e servizi':'Systems & services','elementi':'items','Responsabile:':'Owner:','Supporto:':'Support:',
+    'Da definire':'To be confirmed','Dispositivi':'Devices','Posizione da registrare':'Location to record',
+    'Documenti':'Documents','Collegamenti utili: un clic per trovare il documento corretto.':'Useful links to find the right document in one click.',
+    'Database operativo':'Operations database','Attività, segnalazioni e ore':'Activities, issues and hours',
+    'Registro IT & Operations':'IT & Operations register','Contratti, dispositivi e servizi':'Contracts, equipment and services',
+    'Apri Google Sheet ↗':'Open Google Sheet ↗','Procedure operative':'Operating procedures',
+    'registrate':'recorded','Apri ↗':'Open ↗',
+    'Password e accessi':'Passwords & access',
+    'Tutte le funzioni di credenziali e autorizzazioni, senza perdere le sezioni originali.':'All the original credentials and authorization functions, in one place.',
+    'Pass · Password e credenziali':'Pass · Passwords and credentials',
+    'Apri il registro riservato di accessi, password mascherate e riferimenti al vault privato.':'Open the private access index, masked passwords and private vault references.',
+    'Apri Pass →':'Open Pass →',
+    'Utenti e autorizzazioni':'Users & permissions',
+    'Visualizza le richieste di accesso, gli utenti e i ruoli consentiti al tuo account.':'View access requests, users and roles permitted for your account.',
+    'Gestisci accessi →':'Manage access →',
+    'Registro credenziali':'Credentials register',
+    'Responsabili degli account, dati di recupero e posizione delle credenziali aziendali.':'Account owners, recovery details and secure storage locations.',
+    'Il Bisonte NYC · I dati operativi restano nei registri originali. Le password non sono archiviate in questo sito.':'Il Bisonte NYC · Operational data remains in the original registers. Passwords are not stored in this website.',
+    'Apertura accessi':'Opening access area','Caricamento della sezione riservata…':'Loading protected workspace…',
+    '← Password e accessi':'← Passwords & access',
+    'Nuova attività':'New activity','Modifica attività':'Edit activity',
+    'Attività':'Activity','Responsabile':'Owner','Data prevista':'Due date',
+    'Stato':'Status','Priorità':'Priority','Note / prossimo passo':'Notes / next step',
+    'Annulla':'Cancel','Salva':'Save','Modifiche salvate':'Changes saved',
+    'Aggiorna card':'Update card','Referente / supporto':'Contact / support',
+    'Servizio':'Service','Modifica':'Edit',
+    'Segnala un problema':'Report an issue',
+    'Password & accessi':'Passwords & access'
+  };
+  function localizeSimple(root){
+    if(!root)return;
+    // Wrap only the simple UI so original Pass, Users and Worklog pages remain translatable.
+    root.innerHTML='<div data-i18n-skip="1">'+root.innerHTML+'</div>';
+    if(window.IBI18n?.language?.()!=='en'||!document.createTreeWalker)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())){
+      if(!node.parentElement||node.parentElement.closest('script,style,textarea,input'))continue;
+      const original=node.nodeValue,trim=original.trim();
+      if(Object.prototype.hasOwnProperty.call(EN_UI,trim)){
+        node.nodeValue=original.replace(trim,EN_UI[trim]);
+      }
+    }
+  }
+
+  function navForRole(){const out=NAV.slice();if(['project_manager','management','it_admin'].includes(role())){out.push(['access_hub','◇','Passwords & access']);if(workRole())out.push(['pmworklog','◷','My work & hours']);}return out;}
+  App.nav.store_manager=NAV.slice();App.nav.project_manager=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.management=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','Work & hours']]);App.nav.it_admin=NAV.concat([['access_hub','◇','Passwords & access'],['pmworklog','◷','My work & hours']]);App.nav.read_only=NAV.slice();
   renderNav=function(){const nav=document.querySelector('#sidebarNav');if(!nav)return;const items=navForRole();nav.innerHTML=items.map(([id,ic,l])=>'<button type="button" class="nav-btn '+(App.page===id?'active':'')+'" data-simple-nav="'+id+'"><span class="nav-icon">'+ic+'</span><span>'+safe(l)+'</span></button>').join('');};
   renderPage=function(){const root=document.querySelector('#pageRoot');if(!root||!App.data)return;const p=App.page;if(p==='pmworklog'){if(workRole())return window.IBPMWorklog.render(root);App.page='dashboard';}
-    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);App.page='dashboard';return home(root);};
+    if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);if(p==='access_hub')return accessHub(root);if(['pass','users','credentials'].includes(p))return root.innerHTML=header('Apertura accessi','Caricamento della sezione riservata…',button('← Passwords & access','page:access_hub'));App.page='dashboard';return home(root);};
+  const baseSimpleRender=renderPage;
+  renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','documents','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
   document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
-  document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Cerca attività e segnalazioni…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
+  document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Search activities and issues…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
+  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','documents','access_hub'].includes(App.page))render();});
   window.IBSimpleHub={refresh,navTo};
 })();

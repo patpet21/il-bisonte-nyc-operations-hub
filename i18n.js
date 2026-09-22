@@ -19,6 +19,15 @@
   let lastError='';
 
   const STATIC_IT={
+    'Overview':'Panoramica',
+    'Activities':'Attività',
+    'Partners':'Fornitori',
+    'Store systems':'Sistemi del negozio',
+    'Documents':'Documenti',
+    'Passwords & access':'Password e accessi',
+    'My work & hours':'Le mie attività e ore',
+    'Work & hours':'Attività e ore',
+    'Search activities and issues…':'Cerca attività e segnalazioni…',
     'Home':'Home',
     'PM Control Center':'Centro di Controllo PM',
     'IT & Operations Overview':'Panoramica IT e Operazioni',
@@ -176,7 +185,7 @@
     const session=window.IBAuth?.current?.()||{};
     return String(session?.user?.email||window.IB_CURRENT_USER?.email||session?.profile?.email||'').trim().toLowerCase();
   }
-  function prefKey(){return PREF_PREFIX+DAMIANO_EMAIL.replace(/[^a-z0-9]/g,'_')}
+  function prefKey(){return PREF_PREFIX+userEmail().replace(/[^a-z0-9]/g,'_')}
   function loadCache(){try{return JSON.parse(localStorage.getItem(CACHE_KEY)||'{}')||{}}catch(e){return {}}}
   function saveCache(){
     try{
@@ -192,7 +201,7 @@
     const auth=window.IBAuth;
     if(!auth?.whenAuthorized){setTimeout(start,60);return}
     auth.whenAuthorized().then(()=>{
-      if(userEmail()!==DAMIANO_EMAIL){enabled=false;language='en';document.documentElement.lang='en';return}
+      if(!userEmail()){enabled=false;language='en';document.documentElement.lang='en';return}
       enabled=true;
       language=localStorage.getItem(prefKey())==='it'?'it':'en';
       mountControl();
@@ -235,6 +244,7 @@
     document.documentElement.lang=language;
     updateControl();
     if(language==='en')restoreEnglish();else scheduleTranslate(0);
+    document.dispatchEvent(new CustomEvent('ib-language-change',{detail:{language}}));
   }
 
   function installObserver(){
@@ -317,6 +327,8 @@
       if(!waiting.has(source))waiting.set(source,[]);
       waiting.get(source).push(node);
     });
+    // Other approved users retain the local EN/IT interface without invoking the Damiano-only translation backend.
+    if(userEmail()!==DAMIANO_EMAIL)return;
     const missing=[...waiting.keys()].filter(text=>!inflight.has(text));
     if(!missing.length)return;
     missing.forEach(text=>inflight.add(text));
