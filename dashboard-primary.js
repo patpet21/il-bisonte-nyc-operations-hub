@@ -95,145 +95,61 @@
     }));
   }
 
+  // Only the homepage changes; all existing feature pages and data actions remain.
   const legacyPMDashboard=renderPMDashboard;
   renderPMDashboard=function(root){
     if(!['project_manager','it_admin'].includes(App.role))return legacyPMDashboard(root);
-
     const d=App.data||{};
-    const projects=d.projects||[],requests=d.requests||[],tasks=d.tasks||[],vendors=d.vendors||[],activity=d.activity||[];
-    const todayKey=localDateKey(0),yesterdayKey=localDateKey(-1);
-    const todayWork=tasks.filter(t=>String(t.due||'').slice(0,10)===todayKey);
-    const yesterdayDone=tasks.filter(t=>closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
-    const yesterdayOpen=tasks.filter(t=>!closed(t)&&String(t.due||'').slice(0,10)===yesterdayKey);
-    const activeProjects=projects.filter(x=>!closed(x));
-    const openRequests=requests.filter(x=>!closed(x));
-    const urgentRequests=openRequests.filter(x=>['urgent','high','critical'].includes(String(x.priority||'').toLowerCase()));
-    const overdueHighTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)<0&&['urgent','high','critical'].includes(String(t.priority||'').toLowerCase()));
-    const urgentItems=[
-      ...urgentRequests.map(x=>({title:x.title,sub:x.nextAction||x.category||x.owner,badge:x.priority||'High',tone:x.priority,requestId:x.id})),
-      ...overdueHighTasks.map(x=>({title:x.title,sub:x.notes||x.owner,badge:'Overdue',tone:'overdue',page:'projects'}))
-    ];
-
-    const todayTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)===0);
-    const upcomingTasks=tasks.filter(t=>!closed(t)&&daysFromToday(t.due)>0&&daysFromToday(t.due)<=7).sort((a,b)=>daysFromToday(a.due)-daysFromToday(b.due));
-    const todayItems=(todayTasks.length?todayTasks:upcomingTasks).slice(0,4).map(t=>({
-      title:t.title,sub:t.notes||t.owner||'Scheduled work',badge:todayTasks.length?'Today':dueLabel(t.due),tone:'today',projectId:t.projectId||''
-    }));
-
-    const waitingRequests=openRequests.filter(r=>/pending|waiting|vendor/i.test(String(r.status||'')));
-    const vendorActions=vendors.filter(v=>String(v.nextAction||'').trim());
-    const waitingItems=[
-      ...waitingRequests.map(r=>({title:r.title,sub:r.nextAction||r.owner||r.category,badge:'Waiting',tone:'waiting',requestId:r.id})),
-      ...vendorActions.map(v=>({title:v.name,sub:v.nextAction||v.service,badge:v.status||'Waiting',tone:'waiting',page:'vendors'}))
-    ];
-    const dedup=[];const seen=new Set();
-    waitingItems.forEach(x=>{const k=x.title+'|'+x.sub;if(seen.has(k))return;seen.add(k);dedup.push(x)});
-
-    const recent=[...activity].sort((a,b)=>activityDate(b)-activityDate(a)).slice(0,5).map(a=>({
-      title:a.action||a.title||a.text||a.description||'Activity',
-      sub:a.details||a.detail||a.description||a.notes||a.text||a.by||'',
-      meta:activityLabel(a),page:'activity'
-    }));
-
-    const greeting=new Date().getHours()<12?'Good morning':new Date().getHours()<18?'Good afternoon':'Good evening';
-    const todayText=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
-    const title=App.role==='it_admin'?'IT & Operations Overview':'Operations Overview';
-
-    root.innerHTML=pageHead(title,'A clear control center for what needs action now, what is moving, and what is waiting.','IL BISONTE NEW YORK')+
-    `<div class="hub-v2">
-      <div class="hub-v2-top">
-        <div class="hub-v2-greeting"><strong>${safe(todayText)}</strong><br>${safe(greeting)}.</div>
-        <div class="hub-v2-actions">
-          <button class="hub-v2-action primary" data-action="new-request">＋ New Request</button>
-          <button class="hub-v2-action" data-action="log-work">◷ Log Work</button>
-          <button class="hub-v2-action" data-action="retail">▣ Retail Systems</button>
-        </div>
-      </div>
-
-      <div class="hub-v2-kpis">
-        ${kpi('▤','Open Requests',openRequests.length,'Items still needing action','requests')}
-        ${kpi('□','Active Projects',activeProjects.length,'Projects currently moving','projects')}
-        ${kpi('!','Urgent Items',urgentItems.length,'High priority or overdue','requests')}
-        ${kpi('◉','Vendor Follow-ups',vendorActions.length,'External actions still open','vendors')}
-      </div>
-
-      <nav class="hub-v2-tabs" aria-label="Overview sections">
-        <button class="hub-v2-tab active">Overview</button>
-        <button class="hub-v2-tab" data-page="work">Work</button>
-        <button class="hub-v2-tab" data-page="projects">Projects</button>
-        <button class="hub-v2-tab" data-page="requests">Requests</button>
-        <button class="hub-v2-tab" data-page="vendors">Vendors</button>
-        <button class="hub-v2-tab" data-page="systems">Tools & Systems</button>
-      </nav>
-
-      <section class="hub-v2-panel hub-work-panel">
-        <div class="hub-v2-panel-head"><div><h2>Daily Work</h2><p>The actual operational work to do — not hours or billing.</p></div><div class="hub-v2-head-actions"><button class="hub-v2-link" data-action="new-work">+ New work item</button><button class="hub-v2-link" data-page="work">Open Work board →</button></div></div>
-        <div class="hub-work-grid">
-          ${dailyWorkCard('TODAY',todayKey,todayWork,'Nothing scheduled for today.')}
-          ${dailyWorkCard('YESTERDAY — COMPLETED',yesterdayKey,yesterdayDone,'No completed work recorded for yesterday.')}
-          ${yesterdayOpen.length?`<section class="hub-work-day overdue"><div class="hub-work-day-head"><div><span>YESTERDAY — STILL OPEN</span><strong>${safe(yesterdayKey)}</strong></div><b>${yesterdayOpen.length}</b></div><div class="hub-work-entries">${yesterdayOpen.map(workItemCard).join('')}</div></section>`:''}
-        </div>
-      </section>
-
-      <div class="hub-v2-grid">
-        <div class="hub-v2-left">
-          <section class="hub-v2-panel">
-            <div class="hub-v2-panel-head"><div><h2>Today / Needs Attention</h2><p>Only the items that deserve attention now.</p></div><button class="hub-v2-link" data-page="requests">View all →</button></div>
-            <div class="hub-v2-attention">
-              <div class="hub-v2-attn-col urgent"><div class="hub-v2-attn-title">● Urgent (${urgentItems.length})</div>${urgentItems.slice(0,4).map(miniRow).join('')||'<div class="hub-v2-empty">No urgent items.</div>'}</div>
-              <div class="hub-v2-attn-col today"><div class="hub-v2-attn-title">◷ Today / Next</div>${todayItems.map(miniRow).join('')||'<div class="hub-v2-empty">Nothing scheduled in the next 7 days.</div>'}</div>
-              <div class="hub-v2-attn-col waiting"><div class="hub-v2-attn-title">⌛ Waiting on Others (${dedup.length})</div>${dedup.slice(0,4).map(miniRow).join('')||'<div class="hub-v2-empty">No external blockers.</div>'}</div>
-            </div>
-          </section>
-
-          <div class="hub-v2-two">
-            <section class="hub-v2-panel">
-              <div class="hub-v2-panel-head"><div><h3>Active Projects</h3><p>Current initiatives and the next step.</p></div><button class="hub-v2-link" data-page="projects">View all (${activeProjects.length}) →</button></div>
-              ${projectTable(activeProjects.slice(0,5))}
-            </section>
-            <section class="hub-v2-panel">
-              <div class="hub-v2-panel-head"><div><h3>Open Requests</h3><p>Latest issues and requests still open.</p></div><button class="hub-v2-link" data-page="requests">View all (${openRequests.length}) →</button></div>
-              ${requestTable(openRequests.slice(0,5))}
-            </section>
-          </div>
-        </div>
-
-        <aside class="hub-v2-right">
-          <section class="hub-v2-panel">
-            <div class="hub-v2-panel-head"><div><h3>Quick Actions</h3><p>Common tasks, one click away.</p></div></div>
-            <div class="hub-v2-quick">
-              ${quick('＋','New Request','Submit a store or IT request','new-request')}
-              ${quick('✓','Work Board','Today, next, waiting and done',null,'work')}
-              ${quick('▣','Retail Systems','Retail Pro, Stealth and POS support','retail')}
-              ${quick('◈','Pass & Access','Open access records','pass')}
-            </div>
-          </section>
-
-          <section class="hub-v2-panel">
-            <div class="hub-v2-panel-head"><div><h3>Vendor Follow-ups</h3><p>Items waiting on vendor action.</p></div><button class="hub-v2-link" data-page="vendors">View all →</button></div>
-            <ul class="hub-v2-side-list">${vendorActions.slice(0,5).map(v=>sideRow({title:v.name,sub:v.nextAction||v.service,meta:v.status||'Open',page:'vendors'})).join('')||'<li class="hub-v2-empty">No vendor follow-ups.</li>'}</ul>
-          </section>
-
-          <section class="hub-v2-panel">
-            <div class="hub-v2-panel-head"><div><h3>Recent Activity</h3><p>Latest changes across operations.</p></div><button class="hub-v2-link" data-page="activity">View all →</button></div>
-            <ul class="hub-v2-side-list">${recent.map(sideRow).join('')||'<li class="hub-v2-empty">No recent activity.</li>'}</ul>
-          </section>
-        </aside>
-      </div>
-
-      <section class="hub-v2-panel">
-        <div class="hub-v2-panel-head"><div><h3>Quick Tools</h3><p>Only the tools you are most likely to need from the overview.</p></div></div>
-        <div class="hub-v2-tools">
-          ${tool('Retail Systems','Retail Pro / Stealth / POS support','retail_systems')}
-          ${tool('Store Health','Connectivity and service status','store_health')}
-          ${tool('Peter Work','Hours and billing register','pmworklog')}
-          ${tool('Pass & Access','Account access references','pass')}
-          ${tool('Roadmap','Phases and next steps','roadmap')}
-          ${tool('SOP Library','Store procedures','sops')}
-        </div>
-      </section>
-    </div>`;
-
+    const tasks=(d.tasks||[]).filter(t=>!closed(t));
+    const openRequests=(d.requests||[]).filter(r=>!closed(r));
+    const vendors=(d.vendors||[]).filter(v=>String(v.nextAction||'').trim());
+    const today=localDateKey();
+    const date=t=>String(t.due||'').slice(0,10);
+    const bucket=t=>!date(t)?3:date(t)<today?0:date(t)===today?1:2;
+    const high=t=>/urgent|critical|high/i.test(String(t.priority||''))?0:1;
+    const ordered=[...tasks].sort((a,b)=>bucket(a)-bucket(b)||high(a)-high(b)||
+      (date(a)||'9999').localeCompare(date(b)||'9999')||
+      String(a.title||'').localeCompare(String(b.title||''))).slice(0,6);
+    const partnerOrder=['VEN-0001','VEN-0007','VEN-0004','VEN-0005','VEN-0002','VEN-0003','VEN-0006'];
+    const partnerRank=v=>{const index=partnerOrder.indexOf(v.id);return index<0?99:index;};
+    const support=[...vendors].sort((a,b)=>partnerRank(a)-partnerRank(b)).slice(0,4);
+    const workRows=ordered.map(t=>{
+      const due=date(t)?(date(t)<today?'Overdue · ':'')+dueLabel(t.due):'No due date';
+      return '<li class="hub-v2-side-row ib-focus-row" data-task-id="'+safe(t.id)+'" role="button" tabindex="0">'+
+        '<div><strong>'+safe(t.title||'Work item')+'</strong><small>'+safe(t.owner||'Unassigned')+' · '+safe(due)+'</small></div>'+
+        '<span class="hub-v2-side-meta">'+safe(t.status||'Open')+'</span></li>';
+    }).join('');
+    const vendorRows=support.map(v=>
+      '<li class="hub-v2-side-row ib-focus-row" data-page="vendors" role="button" tabindex="0">'+
+        '<div><strong>'+safe(v.name||'Partner')+'</strong><small>'+safe(v.nextAction||v.service||'')+'</small></div>'+
+        '<span class="hub-v2-side-meta">'+safe(v.contact||'Contact to confirm')+'</span></li>'
+    ).join('');
+    root.innerHTML=pageHead(
+      App.role==='it_admin'?'IT & Operations Overview':'Operations Overview',
+      'Current work and partner follow-ups. Detailed records remain in their original sections.',
+      'IL BISONTE NEW YORK'
+    )+'<div class="hub-v2 ib-focus-overview">'+
+      '<div class="hub-v2-top"><p class="ib-focus-summary">'+tasks.length+' open work items · '+openRequests.length+' open requests</p>'+
+        '<div class="hub-v2-actions">'+
+          '<button class="hub-v2-action primary" type="button" data-action="new-work">+ New work</button>'+
+          '<button class="hub-v2-action" type="button" data-action="new-request">+ New request</button>'+
+          '<button class="hub-v2-action" type="button" data-action="log-work">My work & hours →</button>'+
+        '</div></div>'+
+      '<div class="hub-v2-two ib-focus-columns">'+
+        '<section class="hub-v2-panel">'+
+          '<div class="hub-v2-panel-head"><div><h2>Work to do</h2><p>Overdue, today and upcoming.</p></div>'+
+            '<button class="hub-v2-link" type="button" data-page="work">All work ('+tasks.length+') →</button></div>'+
+          '<ul class="hub-v2-side-list">'+(workRows||'<li class="hub-v2-empty">No open work items.</li>')+'</ul>'+
+        '</section>'+
+        '<section class="hub-v2-panel">'+
+          '<div class="hub-v2-panel-head"><div><h2>Partner follow-ups</h2><p>Next actions from the existing vendor register.</p></div>'+
+            '<button class="hub-v2-link" type="button" data-page="vendors">All partners →</button></div>'+
+          '<ul class="hub-v2-side-list">'+(vendorRows||'<li class="hub-v2-empty">No pending partner follow-ups.</li>')+'</ul>'+
+        '</section>'+
+      '</div></div>';
     bind(root);
+    root.querySelectorAll('.ib-focus-row').forEach(row=>row.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();row.click();}
+    }));
   };
 })();
