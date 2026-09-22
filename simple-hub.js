@@ -11,7 +11,7 @@
     ?String(window.IBAuth?.current?.()?.user?.role||window.IB_CURRENT_USER?.role||'')
     :String(App.role||'');}
   function editRole(){return ['project_manager','it_admin'].includes(role());}
-  function workRole(){return window.IBPMWorklog?.canView?.()===true;}
+  function workRole(){return ['project_manager','management','it_admin'].includes(role()) && window.IBPMWorklog?.canView?.()===true;}
   function safe(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function rows(type){return Array.isArray(App.data?.[type])?App.data[type]:[];}
   function closed(status){return ['completed','closed','resolved','cancelled','canceled'].includes(String(status||'').toLowerCase());}
