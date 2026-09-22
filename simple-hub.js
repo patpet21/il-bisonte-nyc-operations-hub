@@ -79,6 +79,7 @@
     const retailSystems=rows('systems').filter(s=>/retail|prism|stealth|shop\.net|pos\.net/i.test([s.name,s.vendor,s.details].join(' ')));
     const support=rows('vendors').find(v=>/retail pro support/i.test(v.name||''));
     const programs=[...retailSystems];
+    ['Stealth','Akite SHOP.NET','POS.NET'].forEach(name=>{if(!programs.some(s=>String(s.name||'').toLowerCase()===name.toLowerCase()))programs.push({name,vendor:'Supporto da verificare',owner:'Responsabile da definire',status:'Da registrare'});});
     if(!programs.some(s=>/retail pro/i.test(s.name||''))&&support)
       programs.unshift({name:'Retail Pro Prism',vendor:support.name,owner:'Damiano / Italy IT',status:'Da verificare'});
     root.innerHTML=header('Retail & POS','Programmi del negozio e riferimenti al supporto.',button('Aggiorna','refresh'))+
@@ -181,6 +182,14 @@
   // user-entered task/vendor records are never sent to an extra translation service.
   const EN_UI={
     'Impostazioni':'Settings',
+    'Programmi del negozio e riferimenti al supporto.':'Store programs and support contacts.',
+    'Da registrare':'To be documented',
+    'Da verificare':'To confirm',
+    '← Impostazioni':'← Settings',
+    'Email:':'Email:',
+    'Telefono:':'Phone:',
+    'Retail Pro Support':'Retail Pro Support',
+    'Nessun sistema Retail registrato.':'No retail systems recorded.',
     'Lingua, accessi e strumenti di supporto: tutto nello stesso gestionale.':'Language, access and supporting tools in the same workspace.',
     'Seleziona la lingua dell’interfaccia.':'Choose your interface language.',
     'Registro degli account e riferimenti al vault riservato.':'Account register and private vault references.',
@@ -325,6 +334,6 @@
   renderPage=function(){const result=baseSimpleRender();if(['dashboard','activities','partners','systems_simple','retail_simple','documents','docs_simple','settings','pass_simple','projects_simple','access_hub'].includes(App.page))localizeSimple(document.querySelector('#pageRoot'));return result;};
   document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action.startsWith('language:')){window.IBI18n?.setLanguage?.(action.slice(9));return;}if(action.startsWith('approve-user:')||action.startsWith('reject-user:')){const approve=action.startsWith('approve-user:');const email=action.slice(approve?13:12);if(!['management','it_admin'].includes(role()))return;const current=window.IBAuth?.current?.()?.user?.email||'Authorized administrator';window.IBAccess.setUserStatus(email,approve?'Approved':'Rejected',current).then(()=>userDirectory(document.querySelector('#pageRoot'))).catch(err=>toast(err.message||'Access update failed'));return;}if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
   document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Search activities and issues…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
-  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','retail_simple','documents','docs_simple','settings','pass_simple','projects_simple','access_hub'].includes(App.page))render();});
+  document.addEventListener('ib-language-change',()=>{if(typeof App!=='undefined'&&App.data&&['dashboard','activities','partners','systems_simple','retail_simple','documents','docs_simple','settings','pass_simple','projects_simple','users_simple','access_hub'].includes(App.page))render();});
   window.IBSimpleHub={refresh,navTo};
 })();
