@@ -42,7 +42,7 @@
       details.dataset.group=group.key;
       details.open=expanded.has(group.key)||members.some(entry=>entry[0]===App.page);
       const summary=document.createElement('summary');
-      const label=document.createElement('span');label.className='ib-nav-group-label';
+      const label=document.createElement('span');label.className='ib-nav-group-label';label.dataset.i18nSkip='1';
       label.dataset.en=group.en;label.dataset.it=group.it;
       label.textContent=italian()?group.it:group.en;
       const arrow=document.createElement('span');arrow.className='ib-nav-chevron';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
@@ -59,7 +59,7 @@
       details.open=remaining.some(entry=>entry[0]===App.page)||expanded.has('more');
       details.dataset.group='more';
       const summary=document.createElement('summary');
-      const label=document.createElement('span');label.className='ib-nav-group-label';
+      const label=document.createElement('span');label.className='ib-nav-group-label';label.dataset.i18nSkip='1';
       label.dataset.en='Other tools';label.dataset.it='Altri strumenti';label.textContent=italian()?'Altri strumenti':'Other tools';
       const arrow=document.createElement('span');arrow.className='ib-nav-chevron';arrow.setAttribute('aria-hidden','true');arrow.textContent='⌄';
       summary.append(label,arrow);const items=document.createElement('div');items.className='ib-nav-group-items';
