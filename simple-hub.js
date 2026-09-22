@@ -164,7 +164,8 @@
   };
   function localizeSimple(root){
     if(!root)return;
-    root.dataset.i18nSkip='1';
+    // Wrap only the simple UI so original Pass, Users and Worklog pages remain translatable.
+    root.innerHTML='<div data-i18n-skip="1">'+root.innerHTML+'</div>';
     if(window.IBI18n?.language?.()!=='en'||!document.createTreeWalker)return;
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
     let node;
