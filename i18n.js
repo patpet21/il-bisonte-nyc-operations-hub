@@ -19,6 +19,12 @@
   let lastError='';
 
   const STATIC_IT={
+    'Settings':'Impostazioni',
+    'Retail & POS':'Retail e POS',
+    'My work & hours':'Le mie attività e ore',
+    'Settings & tools':'Impostazioni e strumenti',
+    'Support details':'Dettagli assistenza',
+    'Simple home':'Home semplificata',
     'Partners & support':'Partner e assistenza',
     'One card per company: named contacts, support channels and the next action, using the existing vendor register.':'Una scheda per azienda: referenti, canali di assistenza e prossimo passo, dal registro fornitori esistente.',
     'Contact / Referente':'Referente',
