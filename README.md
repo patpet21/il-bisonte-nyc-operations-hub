@@ -1,57 +1,36 @@
-# Il Bisonte NYC Operations Hub
+# Il Bisonte NYC — Store Operations
 
-Working prototype of a private internal operations and project-management portal for the Il Bisonte New York store.
+A small internal workspace for the New York store. The simplified interface keeps only the areas staff use every day, while retaining the original Google Sheets/Apps Script backend and all historical records.
 
-## Current prototype
+## Current interface
 
-The branch contains a deployable static web application with three role-based experiences:
+- **Overview:** a concise list of current store tasks, open items, and quick partner cards.
+- **Activities:** prioritized work, waiting items, completed history, and store requests. Authorized PM staff can create, edit, and complete tasks.
+- **Partners:** dedicated live-data cards for eMazzanti, RIS, Deda Group, Retail Pro Support, Spectrum, Verizon, and other providers. Missing information is labeled rather than invented. Authorized PM staff can edit existing vendor cards.
+- **Store systems:** business-owned systems and any inventory returned by the backend.
+- **Documents:** links to the operational Sheets and existing procedure references.
+- **My work & hours:** preserves the original PM_WORKLOG module, including dates, logged hours, on-site/remote work, flat fees, amounts, invoice state, and its live create/edit flow. Visible to PM and management roles, not store staff.
 
-- **Store Manager** — report issues, create requests, view open items, vendors and quick procedures.
-- **Project Manager** — PM Control Center, **My PM Work & Hours**, project portfolio, request/issue coordination, vendor register, systems, SOPs, improvement backlog and activity log.
-- **Management** — executive dashboard, critical items, project portfolio and decision queue.
+The visual and navigation overhaul is implemented in `simple-hub.js` and `simple-hub.css`. The earlier UI modules are retained in Git history and in the repository for rollback, but they are no longer loaded by `index.html`.
 
-The prototype runs immediately in **DEMO** mode using browser localStorage. The data layer is isolated, so the UI does not need to be rebuilt when switching to the Google Sheets backend.
+## Data safety
 
-## Data architecture
+The existing `TASKS`, `REQUESTS`, `VENDORS`, `SYSTEMS`, `PM_WORKLOG` and other Sheets remain in place. No existing sheet or PM hour entry was deleted or migrated into a new schema. The frontend uses the existing `IBData` and `IBPMWorklog` APIs.
 
-Production path:
-
-`Web UI -> Google Apps Script -> Google Sheets + Google Drive`
-
-The Google Sheet schema is designed around these tables:
-
-`REQUESTS`, `PROJECTS`, `TASKS`, `VENDORS`, `SYSTEMS`, `ASSETS`, `SOPS`, `DECISIONS`, `IMPROVEMENTS`, `ACTIVITY_LOG`, `USERS`, `CONFIG`, `PM_WORKLOG`.
-
-### PM worklog
-
-`PM_WORKLOG` is a Project Manager-only work and billing register. It stores work date/time, tracked hours, work mode, category, linked project, activity/description, stakeholders, billing type, rate, amount, invoice status, evidence reference and notes.
-
-Create, update and delete actions are routed through Apps Script and require the existing `Manage_Projects` permission. Each production write also creates an audit event in `ACTIVITY_LOG`.
-
-Historical work with unknown hours is intentionally left without an hour value rather than estimating time that cannot be reconstructed.
-
-Credentials are deliberately **not stored** in this application. The system records credential ownership/location only; passwords belong in an approved corporate password manager.
-
-## Switch from demo to Google Sheets
-
-1. Create/deploy the Apps Script backend using both `apps-script/Code.gs` and `apps-script/PMWorklog.gs`.
-2. Set Script Property `SPREADSHEET_ID` to the target Operations database.
-3. Deploy the script as a Web App.
-4. In `config.js` set:
-
-```js
-dataMode: "apps_script",
-appsScriptUrl: "YOUR_APPS_SCRIPT_WEB_APP_URL"
-```
-
-The same front-end then reads/writes the company-controlled database. In DEMO mode, the PM worklog uses a local browser copy of the same initial records.
-
-## Portability
-
-No company-specific IDs or secrets are hard-coded in the UI. The demo environment can later be replaced by Il Bisonte-owned Google Workspace resources without redesigning the application.
+`PM_WORKLOG` is personal business and billing data: do not put worklog rows, credentials, passwords, or secrets in this public repository. The frontend relies on backend role and approval enforcement; hiding UI controls is not a replacement for server-side authorization. The vendor registry stores support context, not passwords.
 
 ## Deployment
 
-The front-end requires no build command. `index.html` is the publish root and can be hosted as a static site.
+The site remains a static application with no build command. Deploy the repository root as before. The PWA service-worker cache has a new version to fetch the streamlined assets.
 
-Prototype version: **0.10.0**
+Production config remains in `config.js`; the Apps Script backend and company-controlled Sheets do **not** need to be re-created for this UI update.
+
+## Verification before store rollout
+
+1. Sign in as PM; verify that current tasks and partner cards load from the real Sheet.
+2. Create/edit a task, then reload and confirm persistence.
+3. Open **My work & hours**; confirm historical records and test a permitted update without changing billing facts.
+4. Sign in as Store Manager; confirm the personal worklog is absent and protected writes are denied by the backend.
+5. Check the navigation, partner cards and forms on a phone as well as a desktop.
+
+The legacy interface is recoverable from the commit before the simplified-hub branch.
