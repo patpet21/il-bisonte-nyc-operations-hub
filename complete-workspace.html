@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#173f36" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="IB Operations" />
+  <title>Il Bisonte NYC · Complete Workspace</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Caslon+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="notifications.css" />
+  <link rel="stylesheet" href="access-modal.css" />
+  <link rel="stylesheet" href="ui-enhancements.css" />
+  <link rel="stylesheet" href="layout-v04.css" />
+  <link rel="stylesheet" href="pass-vault.css" />
+  <link rel="stylesheet" href="auth.css" />
+  <link rel="stylesheet" href="roadmap.css" />
+  <link rel="stylesheet" href="project-workspace.css" />
+  <link rel="stylesheet" href="operations-control.css" />
+  <link rel="stylesheet" href="pm-worklog.css" />
+  <link rel="stylesheet" href="mobile-v010.css" />
+  <link rel="stylesheet" href="intuitive-layout.css" />
+  <link rel="stylesheet" href="dashboard-now.css?v=0104" />
+  <link rel="stylesheet" href="overview-v2.css?v=0111" />
+  <link rel="stylesheet" href="retail-systems.css?v=0105" />
+  <link rel="stylesheet" href="professional-icons.css" />
+  <link rel="stylesheet" href="i18n.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✦</div>
+        <div class="brand-name">IL BISONTE</div>
+        <div class="brand-sub">NEW YORK</div>
+      </div>
+      <nav id="sidebarNav" class="sidebar-nav"></nav>
+      <div class="sidebar-foot">
+        <span>Private Operations Hub</span>
+        <small>Production</small>
+      </div>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="globalSearch" type="search" placeholder="Search projects, requests, vendors, or procedures..." />
+        </div>
+        <div class="topbar-actions">
+          <span id="environmentBadge" class="env-badge">DEMO</span>
+          <label class="role-label" for="roleSelect">View as</label>
+          <select id="roleSelect" class="role-select">
+            <option value="store_manager">Store Manager</option>
+            <option value="project_manager" selected>Project Manager</option>
+            <option value="management">Management</option>
+          </select>
+          <div class="avatar">PF</div>
+        </div>
+      </header>
+
+      <section id="pageRoot" class="page-root"></section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+  <div id="authRoot"></div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="config.js"></script>
+  <script src="runtime-stability.js?v=0106"></script>
+  <script src="auth.js"></script>
+  <script src="signup.js"></script>
+  <script src="data-provider.js"></script>
+  <script src="emazzanti-managed-it.js"></script>
+  <script src="access-provider.js"></script>
+  <script src="app.js?v=0111"></script>
+  <script src="startup-fast.js"></script>
+  <script src="role-bootstrap.js?v=0111"></script>
+  <script src="workspace-cache.js"></script>
+  <script src="notifications.js"></script>
+  <script src="ui-enhancements.js"></script>
+  <script src="pass-vault.js"></script>
+  <script src="roadmap-phase-workspace-v2.js"></script>
+  <script src="roadmap.js"></script>
+  <script src="project-workspace.js"></script>
+  <script src="operations-control.js"></script>
+  <script src="pm-worklog.js?v=0110"></script>
+  <script src="intuitive-layout.js?v=0105"></script>
+  <script src="dashboard-primary.js?v=0111"></script>
+  <script src="retail-systems.js?v=0105"></script>
+  <script src="professional-icons.js"></script>
+  <script src="i18n.js"></script>
+</body>
+</html>
