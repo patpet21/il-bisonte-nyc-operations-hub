@@ -244,6 +244,7 @@
     document.documentElement.lang=language;
     updateControl();
     if(language==='en')restoreEnglish();else scheduleTranslate(0);
+    document.dispatchEvent(new CustomEvent('ib-language-change',{detail:{language}}));
   }
 
   function installObserver(){
