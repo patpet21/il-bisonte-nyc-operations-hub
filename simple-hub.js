@@ -6,7 +6,7 @@
   const SHEET_URL='https://docs.google.com/spreadsheets/d/1cUYOUMcwLNOtNtsGUcqMcbKLKsRN_kGLfzz3072i4LE/edit';
   const REGISTER_URL='https://docs.google.com/spreadsheets/d/1oI4C08UaD8i-UppqIF4rNGOjkvvoSr0uZTZ8nUW27Ck/edit';
   const NAV=[['dashboard','⌂','Overview'],['activities','✓','Activities'],['partners','◉','Partners'],['systems_simple','▦','Store systems'],['documents','▤','Documents']];
-  let filter='open', activityKind='tasks', query='';
+  let filter='priority', activityKind='tasks', query='';
   function role(){return window.IB_CONFIG?.dataMode==='apps_script'
     ?String(window.IBAuth?.current?.()?.user?.role||window.IB_CURRENT_USER?.role||'')
     :String(App.role||'');}
@@ -34,10 +34,11 @@
   function vendorGrid(){const featured=[
     vendorCard('eMazzanti','e','Rete, WatchGuard e supporto eCare',/emazzanti/i),
     vendorCard('RIS','R','Coordinamento dell\'incarico tecnico iniziale',/\bris\b|retail information systems/i),
-    vendorCard('Deda Group / Retail Pro','D','Prism, server e migrazione Retail Pro',/deda|retail pro/i),
+    vendorCard('Deda Group','D','Prism, server e migrazione Retail Pro',/deda/i),
+    vendorCard('Retail Pro Support','P','Assistenza applicativa e supporto POS',/retail pro/i),
     vendorCard('Spectrum','S','Connessione Internet principale',/spectrum/i),
     vendorCard('Verizon','V','Servizi telefonici e connettività da verificare',/verizon/i)
-  ];const used=rows('vendors').filter(v=>![/emazzanti/i,/\bris\b|retail information systems/i,/deda|retail pro/i,/spectrum/i,/verizon/i].some(rx=>rx.test(v.name||'')));
+  ];const used=rows('vendors').filter(v=>![/emazzanti/i,/\bris\b|retail information systems/i,/deda/i,/retail pro/i,/spectrum/i,/verizon/i].some(rx=>rx.test(v.name||'')));
     return '<div class="simple-vendors">'+featured.join('')+used.map(v=>vendorCard(v.name,'•','Altri fornitori',new RegExp('^'+String(v.name||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$','i'))).join('')+'</div>';
   }
   function home(root){const task=rows('tasks'),active=task.filter(t=>!closed(t.status)),pending=active.filter(t=>waiting(t.status)),issues=rows('requests').filter(t=>!closed(t.status));
@@ -49,8 +50,8 @@
       +(workRole()?'<section class="simple-card full"><div class="simple-card-head"><div><h2>Il mio lavoro e le ore</h2><p>Ore, attività, compensi e stato fatture, senza perdere lo storico.</p></div>'+button('Apri registro →','page:pmworklog','primary')+'</div></section>':'')+'</div>'+footer();
   }
   function activities(root){const all=rows('tasks'),open=all.filter(t=>!closed(t.status)),done=all.filter(t=>closed(t.status));
-    let list=filter==='done'?done:filter==='all'?all:filter==='waiting'?open.filter(t=>waiting(t.status)):open;
-    const tabs=[['open','Aperte',open.length],['waiting','In attesa',open.filter(t=>waiting(t.status)).length],['done','Completate',done.length],['all','Tutte',all.length]];
+    let list=filter==='priority'?focusedTasks():filter==='done'?done:filter==='all'?all:filter==='waiting'?open.filter(t=>waiting(t.status)):open;
+    const tabs=[['priority','Da seguire',focusedTasks().length],['waiting','In attesa',open.filter(t=>waiting(t.status)).length],['done','Completate',done.length],['all','Tutte',all.length]];
     const kindTabs=[['tasks','Attività'],['requests','Segnalazioni']];
     const tools=editRole()?button('+ Nuova attività','new-task','primary'):button('Segnala un problema','new-issue','primary');
     root.innerHTML=header('Attività','Cosa fare, chi se ne occupa e cosa è stato completato.',button('Aggiorna','refresh')+tools)
@@ -86,7 +87,7 @@
   renderNav=function(){const nav=document.querySelector('#sidebarNav');if(!nav)return;const items=navForRole();nav.innerHTML=items.map(([id,ic,l])=>'<button type="button" class="nav-btn '+(App.page===id?'active':'')+'" data-simple-nav="'+id+'"><span class="nav-icon">'+ic+'</span><span>'+safe(l)+'</span></button>').join('');};
   renderPage=function(){const root=document.querySelector('#pageRoot');if(!root||!App.data)return;const p=App.page;if(p==='pmworklog'){if(workRole())return window.IBPMWorklog.render(root);App.page='dashboard';}
     if(p==='activities')return activities(root);if(p==='partners')return partners(root);if(p==='systems_simple')return systems(root);if(p==='documents')return documents(root);App.page='dashboard';return home(root);};
-  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter='open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
+  document.addEventListener('click',e=>{const nav=e.target.closest('[data-simple-nav]');if(nav){navTo(nav.dataset.simpleNav);return;}const tab=e.target.closest('[data-filter]');if(tab){filter=tab.dataset.filter;renderPage();return;}const kind=e.target.closest('[data-kind]');if(kind){activityKind=kind.dataset.kind;filter=activityKind==='tasks'?'priority':'open';renderPage();return;}const control=e.target.closest('[data-simple]');if(!control)return;const action=control.dataset.simple||'';if(action.startsWith('page:'))return navTo(action.slice(5));if(action==='close-modal'){document.querySelector('#modalRoot').innerHTML='';return;}if(action==='refresh')return refresh();if(action==='new-task')return taskEditor();if(action==='new-issue')return openRequestModal('issue');if(action.startsWith('edit-task:'))return taskEditor(action.slice(10));if(action.startsWith('edit-vendor:'))return vendorEditor(action.slice(12));if(action.startsWith('edit-issue:'))return window.IBRequestEditor?.open(action.slice(11));if(action.startsWith('task-status:')){const match=/^task-status:(TSK-[^:]+):(.*)$/.exec(action);if(match)return updateStatus(match[1],match[2]);}},false);
   document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#globalSearch');if(input){input.placeholder='Cerca attività e segnalazioni…';input.addEventListener('input',()=>{query=input.value.trim().toLowerCase();if(['dashboard','activities'].includes(App.page))renderPage();});}const env=document.querySelector('#environmentBadge');if(env)env.title='Origine dati: '+String(window.IB_CONFIG?.dataMode||'');});
   window.IBSimpleHub={refresh,navTo};
 })();
